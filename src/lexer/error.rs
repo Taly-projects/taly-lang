@@ -1,0 +1,16 @@
+use crate::util::position::Positioned;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                           Lexer Error                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+pub enum LexerError {
+    UnexpectedChar(Positioned<char>, Option<String>),
+    UnexpectedEOF(Option<String>)
+}
+
+impl LexerError {
+
+    // TODO: print_error
+
+}
