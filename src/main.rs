@@ -1,9 +1,10 @@
 use std::process::exit;
 
-use crate::{util::{source_file::SourceFile, position::Positioned}, lexer::{tokens::Token, lexer::Lexer}};
+use crate::{util::{source_file::SourceFile, position::Positioned}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}};
 
 pub mod util;
 pub mod lexer;
+pub mod parser;
 
 fn read_file(path: &str) -> SourceFile {
     match std::fs::read_to_string(path) {
@@ -26,6 +27,17 @@ fn tokenize(src: &SourceFile) -> Vec<Positioned<Token>> {
     }
 }
 
+fn parse(tokens: Vec<Positioned<Token>>) -> Vec<Positioned<Node>> {
+    let mut parser = Parser::new(tokens);
+    match parser.parse() {
+        Ok(ast) => ast,
+        Err(err) => {
+            // TODO: print error
+            exit(3);
+        },
+    }
+}
+
 fn main() {
     let src = read_file("res/main.taly");
     
@@ -34,4 +46,12 @@ fn main() {
     for token in tokens.iter() {
         println!("{:?}", token);
     }
+    println!("\n");
+
+    let ast = parse(tokens);
+
+    for node in ast.iter() {
+        println!("{:?}", node);
+    }
+    println!("\n");
 }
