@@ -1,4 +1,4 @@
-use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::Node}};
+use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode}}};
 
 pub struct Parser {
     tokens: Vec<Positioned<Token>>,
@@ -39,6 +39,18 @@ impl Parser {
         }
     }
 
+    fn parse_expr0(&mut self) -> Result<Positioned<Node>, ParserError> {
+        let current = self.expect_current(Some("expression".to_string()))?;
+        match current.data.clone() {
+            Token::String(str) => Ok(current.convert(Node::Value(ValueNode::String(str)))),
+            _ => todo!("error")
+        }
+    }
+
+    fn parse_expr(&mut self) -> Result<Positioned<Node>, ParserError> {
+        self.parse_expr0()
+    }
+
     fn parse_use(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let path = self.expect_string()?;
@@ -56,7 +68,7 @@ impl Parser {
         let current = self.expect_current(None)?;
         match current.data.clone() {
             Token::Keyword(keyword) => self.handle_keyword(current.convert(keyword)).map(|x| Some(x)),
-            Token::String(_) => todo!("String value"),
+            Token::String(_) => self.parse_expr().map(|x| Some(x)),
         }
     }
 
