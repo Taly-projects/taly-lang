@@ -65,6 +65,7 @@ impl Parser {
     fn handle_keyword(&mut self, keyword: Positioned<Keyword>) -> Result<Positioned<Node>, ParserError> {
         match keyword.data {
             Keyword::Use => self.parse_use(keyword.start),
+            Keyword::Fn => todo!("Function Definition"),
         }
     }
 
@@ -73,6 +74,7 @@ impl Parser {
         match current.data.clone() {
             Token::Keyword(keyword) => self.handle_keyword(current.convert(keyword)).map(|x| Some(x)),
             Token::String(_) => self.parse_expr().map(|x| Some(x)),
+            _ => Err(ParserError::UnexpectedToken(current, None))
         }
     }
 
