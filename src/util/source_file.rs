@@ -1,6 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           Source File                                          //
 //////////////////////////////////////////////////////////////////////////////////////////////////// 
+
 #[derive(Clone)]
 pub struct SourceFile {
     pub path: String,
@@ -17,7 +18,7 @@ impl SourceFile {
     }
 
     pub fn name_ext(&self) -> String {
-        let index = self.path.rfind('/').unwrap_or(0);
+        let index = self.path.rfind('/').map(|x| x + 1).unwrap_or(0);
         self.path[index..(self.path.len() - 1)].to_string()
     }
 
@@ -31,7 +32,7 @@ impl SourceFile {
     pub fn ext(&self) -> String {
         let name_ext = self.name_ext();
 
-        let index = name_ext.rfind('.').unwrap_or(name_ext.len() - 1);
+        let index = name_ext.rfind('.').map(|x| x + 1).unwrap_or(name_ext.len() - 1);
         if index == name_ext.len() - 1 {
             return "".to_string();
         }

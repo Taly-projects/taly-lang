@@ -37,6 +37,13 @@ impl Lexer {
         }
     }
 
+    fn make_single<T>(&mut self, data: T) -> Positioned<T> {
+        let start = self.pos.clone();
+        let mut end = self.pos.clone();
+        end.advance(self.current());
+        Positioned::new(data, start, end)
+    }
+
     pub fn make_identifier(&mut self) -> Result<Positioned<Token>, LexerError> {
         let start = self.pos.clone();
         let mut buf = String::new();
@@ -93,7 +100,7 @@ impl Lexer {
                 ' ' | '\r' => {
                     // Ignore
                 }
-                _ => return Err(LexerError::UnexpectedEOF(None))
+                _ => return Err(LexerError::UnexpectedChar(self.make_single(current), None))
             }
 
             self.advance();

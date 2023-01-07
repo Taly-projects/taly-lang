@@ -1,5 +1,9 @@
 use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode}}};
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                             Parser                                             //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
 pub struct Parser {
     tokens: Vec<Positioned<Token>>,
     index: usize
@@ -26,7 +30,7 @@ impl Parser {
         if let Some(current) = self.current() {
             Ok(current)
         } else {
-            todo!("error, should be '{:?}'", token)
+            Err(ParserError::UnexpectedEOF(token))
         }
     } 
 
@@ -35,7 +39,7 @@ impl Parser {
         if let Token::String(str) = current.data.clone() {
             Ok(current.convert(str))
         } else {
-            todo!("error")
+            Err(ParserError::UnexpectedToken(current, Some("String".to_string())))
         }
     }
 
@@ -43,7 +47,7 @@ impl Parser {
         let current = self.expect_current(Some("expression".to_string()))?;
         match current.data.clone() {
             Token::String(str) => Ok(current.convert(Node::Value(ValueNode::String(str)))),
-            _ => todo!("error")
+            _ => Err(ParserError::UnexpectedToken(current, Some("Expression".to_string())))
         }
     }
 

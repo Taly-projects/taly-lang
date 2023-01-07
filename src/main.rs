@@ -21,18 +21,18 @@ fn tokenize(src: &SourceFile) -> Vec<Positioned<Token>> {
     match lexer.tokenize() {
         Ok(tokens) => tokens,
         Err(err) => {
-            // TODO: print error
+            err.print_error(src);
             exit(2);
         },
     }
 }
 
-fn parse(tokens: Vec<Positioned<Token>>) -> Vec<Positioned<Node>> {
+fn parse(src: &SourceFile, tokens: Vec<Positioned<Token>>) -> Vec<Positioned<Node>> {
     let mut parser = Parser::new(tokens);
     match parser.parse() {
         Ok(ast) => ast,
         Err(err) => {
-            // TODO: print error
+            err.print_error(src);
             exit(3);
         },
     }
@@ -48,7 +48,7 @@ fn main() {
     }
     println!("\n");
 
-    let ast = parse(tokens);
+    let ast = parse(&src, tokens);
 
     for node in ast.iter() {
         println!("{:?}", node);
