@@ -32,7 +32,7 @@ impl Lexer {
     }
 
     fn advance_x(&mut self, x: usize) {
-        for i in 0..x {
+        for _ in 0..x {
             self.advance();
         }
     }
@@ -59,7 +59,7 @@ impl Lexer {
         if let Some(keyword) = Keyword::from_string(&buf) {
             Ok(Positioned::new(Token::Keyword(keyword), start, end))
         } else {
-            todo!("Identifier")
+            Ok(Positioned::new(Token::Identifier(buf), start, end))
         }
     }
 
@@ -86,9 +86,28 @@ impl Lexer {
 
     pub fn tokenize(&mut self) -> Result<Vec<Positioned<Token>>, LexerError> {
         let mut tokens = Vec::new();
+        let mut space_count = 0;
+        let mut space_start_pos = self.pos.clone();
 
         loop {
             let current = self.current();
+
+            
+            if current == ' ' {
+                space_count += 1;
+                if space_count == 4 {
+                    let mut end = self.pos.clone();
+                    end.advance(' ');
+                    tokens.push(Positioned::new(Token::Tab, space_start_pos.clone(), end));
+                    space_count = 0;
+                } else if space_count == 1 {
+                    space_start_pos = self.pos.clone();
+                }
+                self.advance();
+                continue;
+            } else {
+                space_count = 0;
+            }
             
             match current {
                 'a'..='z' | 'A'..='Z' => {
@@ -96,6 +115,25 @@ impl Lexer {
                     continue;
                 }
                 '"' => tokens.push(self.make_string()?),
+                '(' => tokens.push(self.make_single(Token::LeftParenthesis)),
+                ')' => tokens.push(self.make_single(Token::RightParenthesis)),
+                ',' => tokens.push(self.make_single(Token::Comma)),
+                ':' => tokens.push(self.make_single(Token::Colon)),
+                '=' => {
+                    let next = self.peek(1);
+                    match next {
+                        '>' => {
+                            let start = self.pos.clone();
+                            self.advance();
+                            let mut end = self.pos.clone();
+                            end.advance('>');
+                            tokens.push(Positioned::new(Token::RightDoubleArrow, start, end));
+                        }
+                        _ => todo!("equal")
+                    }
+                }
+                '\n' => tokens.push(self.make_single(Token::NewLine)),
+                '\t' => tokens.push(self.make_single(Token::Tab)),
                 '\0' => break,
                 ' ' | '\r' => {
                     // Ignore

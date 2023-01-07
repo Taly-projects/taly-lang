@@ -5,7 +5,17 @@
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
     Keyword(Keyword),
-    String(String)
+    Identifier(String),
+    String(String),
+    // Symbols
+    LeftParenthesis,
+    RightParenthesis,
+    Comma,
+    Colon,
+    RightDoubleArrow,
+    // Formatting
+    Tab,
+    NewLine
 }
 
 
@@ -16,7 +26,8 @@ pub enum Token {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Keyword {
-    Use
+    Use,
+    Fn
 }
 
 impl Keyword {
@@ -24,6 +35,7 @@ impl Keyword {
     pub fn from_string(str: &str) -> Option<Keyword> {
         match str {
             "use" => Some(Keyword::Use),
+            "fn" => Some(Keyword::Fn),
             _ => None
         }
     }

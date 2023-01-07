@@ -1,1 +1,3 @@
 use "std-stdio"
+
+fn main() =>
