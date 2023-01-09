@@ -70,7 +70,7 @@ impl ErrorFormat {
             let mut current_line = lines.nth(line - 1).unwrap();
             while line <= pos.end.line {
                 let space_offset = (line == pos.start.line).then_some(pos.start.column_index).unwrap_or(0);
-                let error_length = (line == pos.end.line).then_some(pos.end.column_index - space_offset).unwrap_or(current_line.len() - space_offset);
+                let error_length = (line == pos.end.line).then_some(pos.end.column_index.checked_sub(space_offset).unwrap_or(1)).unwrap_or(current_line.len() - space_offset);
             
                 println!(" {:>5} {} {}", line.to_string().truecolor(81, 81, 255).bold(), "|".truecolor(81, 81, 255).bold(), current_line);
                 print!("       {}", "|".truecolor(81, 81, 255).bold());
