@@ -4,6 +4,3 @@ extern fn printf(msg: String)
 
 fn main() =>
     printf("Hello")
-    fn fun2() => 
-	
-printf("2")

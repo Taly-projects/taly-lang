@@ -1,10 +1,11 @@
 use std::process::exit;
 
-use crate::{util::{source_file::SourceFile, position::Positioned}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}};
+use crate::{util::{source_file::SourceFile, position::Positioned}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}};
 
 pub mod util;
 pub mod lexer;
 pub mod parser;
+pub mod ir;
 
 fn read_file(path: &str) -> SourceFile {
     match std::fs::read_to_string(path) {
@@ -38,6 +39,17 @@ fn parse(src: &SourceFile, tokens: Vec<Positioned<Token>>) -> Vec<Positioned<Nod
     }
 }
 
+fn ir_generate(src: &SourceFile, ast: Vec<Positioned<Node>>) -> IROutput {
+    let mut ir = IRGenerator::new(ast);
+    match ir.generate() {
+        Ok(output) => output,
+        Err(err) => {
+            err.print_error(src);
+            exit(4);
+        },
+    }
+}
+
 fn main() {
     let src = read_file("res/main.taly");
     
@@ -51,6 +63,17 @@ fn main() {
     let ast = parse(&src, tokens);
 
     for node in ast.iter() {
+        println!("{:#?}", node);
+    }
+    println!("\n");
+
+    let ir_output = ir_generate(&src, ast);
+
+    for include in ir_output.includes.iter() {
+        println!("{:?}", include);
+    }
+
+    for node in ir_output.ast.iter() {
         println!("{:#?}", node);
     }
     println!("\n");
