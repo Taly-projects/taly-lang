@@ -132,7 +132,12 @@ impl Lexer {
                         _ => todo!("equal")
                     }
                 }
-                '\n' => tokens.push(self.make_single(Token::NewLine)),
+                '\n' => {
+                    let start = self.pos.clone();
+                    let mut end = self.pos.clone();
+                    end.advance(' ');
+                    tokens.push(Positioned::new(Token::NewLine, start, end));
+                },
                 '\t' => tokens.push(self.make_single(Token::Tab)),
                 '\0' => break,
                 ' ' | '\r' => {
