@@ -51,7 +51,7 @@ fn main() {
     let ast = parse(&src, tokens);
 
     for node in ast.iter() {
-        println!("{:?}", node);
+        println!("{:#?}", node);
     }
     println!("\n");
 }
