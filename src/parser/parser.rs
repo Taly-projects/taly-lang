@@ -74,7 +74,7 @@ impl Parser {
     fn parse_body(&mut self, body: &mut Vec<Positioned<Node>>) -> Result<(), ParserError> {
         // Node?([Tab][Node][\n])*
         let mut first = true;
-        'A: while let Some(mut current) = self.current() {
+        'A: while self.current().is_some() {
             // Tab
             let mut tab = 0;
             let pre_index = self.index;
@@ -235,8 +235,6 @@ impl Parser {
                 self.tabs -= 1;
             }
         }
-
-        let start = name.start.clone();
 
         Ok(Positioned::new(Node::FunctionDefinition { 
             name, 
