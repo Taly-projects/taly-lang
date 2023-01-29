@@ -21,6 +21,21 @@ pub enum Node {
     Use(Positioned<String>)
 }
 
+impl Node {
+
+    pub fn short_name(&self) -> String {
+        match self {
+            Node::Value(value) => match value {
+                ValueNode::String(str) => format!("String({})", str),
+            },
+            Node::FunctionDefinition { name, .. } => format!("Function({})", name.data),
+            Node::FunctionCall { name, .. } => format!("FunctionCall({})", name.data),
+            Node::Use(path) => format!("Use({})", path.data),
+        }
+    }
+
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
