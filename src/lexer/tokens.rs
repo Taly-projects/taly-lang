@@ -27,7 +27,8 @@ pub enum Token {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Keyword {
     Use,
-    Fn
+    Fn,
+    Extern
 }
 
 impl Keyword {
@@ -36,6 +37,7 @@ impl Keyword {
         match str {
             "use" => Some(Keyword::Use),
             "fn" => Some(Keyword::Fn),
+            "extern" => Some(Keyword::Extern),
             _ => None
         }
     }
