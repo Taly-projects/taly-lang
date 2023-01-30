@@ -2,7 +2,7 @@ use std::process::exit;
 
 use colored::Colorize;
 
-use crate::{util::{source_file::SourceFile, position::Positioned, reference::MutRef}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}, symbolizer::{symbolizer::Symbolizer, scope::{Scope, ScopeType}}, checker::checker::Checker, generator::{generator::Generator, project::Project}};
+use crate::{util::{source_file::SourceFile, position::Positioned, reference::MutRef}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}, symbolizer::{symbolizer::Symbolizer, scope::{Scope}}, checker::checker::Checker, generator::{generator::Generator, project::Project}};
 
 pub mod util;
 pub mod lexer;
@@ -55,14 +55,14 @@ fn ir_generate(src: &SourceFile, ast: Vec<Positioned<Node>>) -> IROutput {
     }
 }
 
-fn symbolize(src: &SourceFile, ir_output: IROutput) -> Scope {
+fn symbolize(src: &SourceFile, ir_output: IROutput, root: MutRef<Scope>) {
     let mut symbolizer = Symbolizer::new(ir_output);
-    match symbolizer.symbolize() {
-        Ok(output) => output,
+    match symbolizer.symbolize(root) {
         Err(err) => {
             err.print_error(src);
             exit(4);
         },
+        _ => {}
     }
 }
 
@@ -118,19 +118,9 @@ fn main() {
 
     // Symbolizer
     println!("{}", "\n/> Symbolizer".truecolor(81, 255, 255));
-    let mut root_scope = symbolize(&src, ir_output.clone());
+    let mut root_scope = Scope::root();
+    symbolize(&src, ir_output.clone(), MutRef::new(&mut root_scope));
     println!("{:#?}\n", root_scope);
-
-    // Re-process root-reference
-    // TODO: Ugly: Fix (Possible Fix: Create the root in the main and pass it to the symbolizer)
-    let root_scope_ref = MutRef::new(&mut root_scope);
-    if let ScopeType::Root { children } = &mut root_scope.scope {
-        for child in children.iter_mut() {
-            child.parent = Some(root_scope_ref.clone());
-        }
-    } else {
-        unreachable!()
-    }
     
     // Checker
     println!("{}", "\n/> Checker".truecolor(81, 255, 255));

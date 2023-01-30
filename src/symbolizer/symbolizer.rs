@@ -56,15 +56,13 @@ impl Symbolizer {
         }
     }
 
-    pub fn symbolize(&mut self) -> Result<Scope, SymbolizerError> {
-        let mut root = Scope::root();
-        
+    pub fn symbolize(&mut self, root: MutRef<Scope>) -> Result<(), SymbolizerError> {
         while let Some(current) = self.current() {
-            self.symbolize_node(current, MutRef::new(&mut root))?;
+            self.symbolize_node(current, root.clone())?;
             self.advance();
         }
-
-        Ok(root)
+        
+        Ok(())
     }
 
 }
