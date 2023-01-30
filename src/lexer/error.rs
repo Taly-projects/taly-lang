@@ -20,7 +20,7 @@ impl LexerError {
                 } else {
                     buf.push('!');
                 }
-                ErrorFormat::new(ErrorType::Error).set_message(buf).set_step("Lexer".to_string()).set_pos(found.convert(())).print(src);
+                ErrorFormat::new(ErrorType::Error).add_message(buf, Some(found.convert(()))).set_step("Lexer".to_string()).print(src);
             },
             LexerError::UnexpectedEOF(expected) => {
                 let mut buf = "Unexpected EOF".to_string();
@@ -29,7 +29,7 @@ impl LexerError {
                 } else {
                     buf.push('!');
                 }
-                ErrorFormat::new(ErrorType::Error).set_message(buf).set_step("Lexer".to_string()).print(src);
+                ErrorFormat::new(ErrorType::Error).add_message(buf, None).set_step("Lexer".to_string()).print(src);
             },
         }
     }

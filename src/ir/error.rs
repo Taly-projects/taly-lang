@@ -19,7 +19,7 @@ impl IRError {
                 } else {
                     buf.push('!'); 
                 }
-                ErrorFormat::new(ErrorType::Error).set_message(buf).set_step("IR Generator".to_string()).set_pos(found.convert(())).print(src);
+                ErrorFormat::new(ErrorType::Error).add_message(buf, Some(found.convert(()))).set_step("IR Generator".to_string()).print(src);
             },
         }
     }

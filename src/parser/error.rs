@@ -20,7 +20,7 @@ impl ParserError {
                 } else {
                     buf.push('!');
                 }
-                ErrorFormat::new(ErrorType::Error).set_message(buf).set_step("Parser".to_string()).set_pos(found.convert(())).print(src);
+                ErrorFormat::new(ErrorType::Error).add_message(buf, Some(found.convert(()))).set_step("Parser".to_string()).print(src);
             },
             ParserError::UnexpectedEOF(expected) => {
                 let mut buf = "Unexpected EOF".to_string();
@@ -29,7 +29,7 @@ impl ParserError {
                 } else {
                     buf.push('!');
                 }
-                ErrorFormat::new(ErrorType::Error).set_message(buf).set_step("parser".to_string()).print(src);
+                ErrorFormat::new(ErrorType::Error).add_message(buf, None).set_step("parser".to_string()).print(src);
             },
         }
     }
