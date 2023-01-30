@@ -1,11 +1,12 @@
 use std::process::exit;
 
-use crate::{util::{source_file::SourceFile, position::Positioned}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}};
+use crate::{util::{source_file::SourceFile, position::Positioned}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}, symbolizer::{symbolizer::Symbolizer, scope::Scope}};
 
 pub mod util;
 pub mod lexer;
 pub mod parser;
 pub mod ir;
+pub mod symbolizer;
 
 fn read_file(path: &str) -> SourceFile {
     match std::fs::read_to_string(path) {
@@ -50,6 +51,17 @@ fn ir_generate(src: &SourceFile, ast: Vec<Positioned<Node>>) -> IROutput {
     }
 }
 
+fn symbolize(src: &SourceFile, ir_output: IROutput) -> Scope {
+    let mut symbolizer = Symbolizer::new(ir_output);
+    match symbolizer.symbolize() {
+        Ok(output) => output,
+        Err(err) => {
+            err.print_error(src);
+            exit(4);
+        },
+    }
+}
+
 fn main() {
     let src = read_file("res/main.taly");
     
@@ -77,4 +89,7 @@ fn main() {
         println!("{:#?}", node);
     }
     println!("\n");
+
+    let root_scope = symbolize(&src, ir_output);
+    println!("{:#?}\n", root_scope);
 }
