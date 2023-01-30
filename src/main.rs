@@ -2,7 +2,7 @@ use std::process::exit;
 
 use colored::Colorize;
 
-use crate::{util::{source_file::SourceFile, position::Positioned, reference::MutRef}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}, symbolizer::{symbolizer::Symbolizer, scope::{Scope, ScopeType}}, checker::checker::Checker};
+use crate::{util::{source_file::SourceFile, position::Positioned, reference::MutRef}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}, symbolizer::{symbolizer::Symbolizer, scope::{Scope, ScopeType}}, checker::checker::Checker, generator::{generator::Generator, project::Project}};
 
 pub mod util;
 pub mod lexer;
@@ -10,6 +10,7 @@ pub mod parser;
 pub mod ir;
 pub mod symbolizer;
 pub mod checker;
+pub mod generator;
 
 fn read_file(path: &str) -> SourceFile {
     match std::fs::read_to_string(path) {
@@ -76,6 +77,11 @@ fn check(src: &SourceFile, ir_output: IROutput, scope: MutRef<Scope>) -> IROutpu
     }
 }
 
+fn generate(ir_output: IROutput) -> Project {
+    let mut generator = Generator::new(ir_output);
+    generator.generate()
+}
+
 fn main() {
     let src = read_file("res/main.taly");
     
@@ -138,5 +144,15 @@ fn main() {
         println!("{:#?}", node);
     }
     println!("\n");
-    
+
+    // Generator
+    println!("{}", "\n/> Generator".truecolor(81, 255, 255));
+    let project = generate(checker_output);
+
+    for file in project.files.iter() {
+        println!("{}.h", file.name);
+        println!("{}\n", file.header);
+        println!("{}.c", file.name);
+        println!("{}\n", file.src);
+    }
 }
