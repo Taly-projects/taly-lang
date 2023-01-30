@@ -13,6 +13,18 @@ pub struct Include {
     pub path: Positioned<String>
 }
 
+impl Include {
+
+    pub fn full_path(&self) -> String {
+        match self.include_type {
+            IncludeType::External => format!("c-{}", self.path.data),
+            IncludeType::StdExternal => format!("std-{}", self.path.data),
+            IncludeType::Internal => self.path.data.clone(),
+        }
+    }
+
+}
+
 #[derive(Clone, Debug)]
 pub struct IROutput {
     pub includes: Vec<Include>,

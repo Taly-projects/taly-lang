@@ -101,7 +101,15 @@ impl IRGenerator {
                 Node::Value(_) => return Err(IRError::UnexpectedNode(current, None)),
                 Node::FunctionDefinition { .. } => output.ast.push(self.generate_function_definition(current)?),
                 Node::FunctionCall { .. } => return Err(IRError::UnexpectedNode(current, None)),
-                Node::Use(path) => output.includes.push(self.generate_include(path)?),
+                Node::Use(path) => {
+                    for include in output.includes.iter() {
+                        if include.full_path() == format!("{}.h", path.data) {
+                            return Err(IRError::FileAlreadyIncluded(path, include.path.convert(())));
+                        }
+                    }
+
+                    output.includes.push(self.generate_include(path)?);
+                }
             }
             self.advance();
         } 
