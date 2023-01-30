@@ -1,6 +1,6 @@
 use "std-stdio"
 
-extern fn printf(msg: String)
+extern fn printf(msg: c_string)
 
 fn main() =>
     printf("Hello")
