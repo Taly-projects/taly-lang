@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError}, util::{reference::MutRef, position::Positioned}, parser::node::Node};
+use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError}, util::{reference::MutRef, position::{Positioned, Position}}, parser::node::Node};
 
 pub struct Symbolizer {
     ir_output: IROutput,
@@ -27,7 +27,7 @@ impl Symbolizer {
             unreachable!()
         };
 
-        let mut function_scope = Scope::new(ScopeType::Function { 
+        let mut function_scope = Scope::new(node.convert(()), ScopeType::Function { 
             name, 
             params: parameters, 
             children: Vec::new(), 
@@ -57,7 +57,8 @@ impl Symbolizer {
     }
 
     pub fn symbolize(&mut self) -> Result<Scope, SymbolizerError> {
-        let mut root = Scope::new(ScopeType::Root {
+        // TODO: Create function to create root
+        let mut root = Scope::new(Positioned::new((), Position::default(), Position::default()), ScopeType::Root {
             children: Vec::new()
         }, None);
         
