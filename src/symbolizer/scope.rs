@@ -1,4 +1,4 @@
-use crate::{util::{reference::MutRef, position::Positioned}, parser::node::FunctionDefinitionParameter};
+use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::FunctionDefinitionParameter};
 
 #[derive(Clone, Debug)]
 pub enum ScopeType {
@@ -22,6 +22,16 @@ pub struct Scope {
 }
 
 impl Scope {
+
+    pub fn root() -> Self {
+        Self {
+            pos: Positioned::new((), Position::default(), Position::default()),
+            scope: ScopeType::Root { 
+                children: Vec::new()
+            },
+            parent: None
+        }
+    }
 
     pub fn new(pos: Positioned<()>, scope: ScopeType, parent: Option<MutRef<Scope>>) -> Self {
         Self {
