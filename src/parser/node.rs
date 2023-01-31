@@ -30,7 +30,8 @@ pub enum Node {
         lhs: Box<Positioned<Node>>,
         operator: Positioned<Operator>,
         rhs: Box<Positioned<Node>>
-    }
+    },
+    Return(Box<Positioned<Node>>)
 }
 
 impl Node {
@@ -55,6 +56,7 @@ impl Node {
                 Operator::Divide => format!("BinaryOP(Division)"),
                 Operator::Assign => format!("BinaryOP(Assignment)"),
             }
+            Node::Return(_) => format!("Return")
         }
     }
 

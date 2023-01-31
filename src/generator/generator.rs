@@ -110,17 +110,6 @@ impl Generator {
         (true, buf)
     }
 
-    fn generate_current(&mut self, node: Positioned<Node>) -> (bool, String) {
-        match node.data {
-            Node::Value(_) => self.generate_value(node),
-            Node::FunctionCall { .. } => self.generate_function_call(node),
-            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
-            Node::VariableCall(_) => self.generate_variable_call(node),
-            Node::BinaryOperation { .. } => self.generate_binary_operation(node),
-            _ => unreachable!(),
-        }
-    }
-
     fn generate_variable_call(&mut self, node: Positioned<Node>) -> (bool, String) {
         let Node::VariableCall(name) = node.data.clone() else {
             unreachable!()
@@ -129,6 +118,30 @@ impl Generator {
         let buf = format!("{}", name.clone());
 
         (true, buf)
+    }
+
+    fn generate_return(&mut self, node: Positioned<Node>) -> (bool, String) {
+        let Node::Return(expr) = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+        buf.push_str("return ");
+        buf.push_str(&self.generate_current(*expr).1);
+
+        (true, buf)
+    }
+
+    fn generate_current(&mut self, node: Positioned<Node>) -> (bool, String) {
+        match node.data {
+            Node::Value(_) => self.generate_value(node),
+            Node::FunctionCall { .. } => self.generate_function_call(node),
+            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            Node::VariableCall(_) => self.generate_variable_call(node),
+            Node::BinaryOperation { .. } => self.generate_binary_operation(node),
+            Node::Return(_) => self.generate_return(node),
+            _ => unreachable!(),
+        }
     }
 
     fn generate_root_function_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
@@ -160,7 +173,7 @@ impl Generator {
         let file = project.get_file("main".to_string());
         if name.data != "main" {
             file.header.push_str(&function_header);
-            file.header.push_str(";\n");
+            file.header.push_str(";\n\n");
         }
 
         file.src.push_str(&function_header);
@@ -179,6 +192,7 @@ impl Generator {
             file.src.push('\n');
         }
         file.src.push('}');
+        file.src.push('\n');
         file.src.push('\n');
     }
 

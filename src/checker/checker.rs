@@ -310,6 +310,32 @@ impl Checker {
         }
     }
 
+    fn check_return(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::Return(expr) = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_expr = self.check_node(*expr.clone())?;
+
+        // TODO: Check Type
+        let ScopeType::Function { return_type, .. } = &self.scope.get().scope else {
+            unreachable!()
+        };
+
+        if let Some(return_type) = return_type {
+            // TODO: Infer type if variable
+            self.check_type(expr.convert(()), return_type.clone(), checked_expr.data_type)?;
+        } else {
+            todo!("nothing to return")
+        }
+
+        Ok(NodeInfo { 
+            checked: node.convert(Node::Return(Box::new(checked_expr.checked))), 
+            data_type: None, 
+            selected: None 
+        })
+    }
+
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
             Node::Value(_) => self.check_value_node(node),
@@ -319,6 +345,7 @@ impl Checker {
             Node::VariableDefinition { .. } => self.check_variable_definition(node),
             Node::VariableCall(_) => self.check_variable_call(node),
             Node::BinaryOperation { .. } => self.check_binary_operation(node),
+            Node::Return(_) => self.check_return(node),
         }
     }
 

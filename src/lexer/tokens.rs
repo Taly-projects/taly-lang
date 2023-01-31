@@ -38,7 +38,8 @@ pub enum Keyword {
     Fn,
     Extern,
     Var,
-    Const
+    Const,
+    Return
 }
 
 impl Keyword {
@@ -50,6 +51,7 @@ impl Keyword {
             "extern" => Some(Keyword::Extern),
             "var" => Some(Keyword::Var),
             "const" => Some(Keyword::Const),
+            "return" => Some(Keyword::Return),
             _ => None
         }
     }

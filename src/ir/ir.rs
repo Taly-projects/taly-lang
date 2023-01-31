@@ -97,6 +97,7 @@ impl IRGenerator {
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operator(node),
+            Node::Return(_) => self.generate_return(node),
         }
     }
 
@@ -122,12 +123,10 @@ impl IRGenerator {
     fn generate_expr(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
         match node.data {
             Node::Value(_) => self.generate_value(node),
-            Node::FunctionDefinition { .. } => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
             Node::FunctionCall { .. } => self.generate_function_call(node),
-            Node::Use(_) => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
-            Node::VariableDefinition { .. } => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operator(node),
+            _ => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
         }
     }
 
@@ -157,6 +156,16 @@ impl IRGenerator {
             operator, 
             rhs: Box::new(rhs_gen) 
         }))
+    }
+
+    fn generate_return(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+        let Node::Return(expr) = node.data.clone() else {
+            unreachable!()
+        };
+
+        let expr_gen = self.generate_expr(*expr)?;
+
+        Ok(node.convert(Node::Return(Box::new(expr_gen))))
     }
 
     pub fn generate(&mut self) -> Result<IROutput, IRError> {

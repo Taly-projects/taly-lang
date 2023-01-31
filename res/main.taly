@@ -2,6 +2,9 @@ use "std-stdio"
 
 extern fn printf(msg: c_string)
 
+fn HELLO(): c_string =>
+    return "Hello"
+
 fn main() =>
-    const x: c_string = "hello"
+    const x: c_string = HELLO()
     printf(x)
