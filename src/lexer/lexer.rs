@@ -31,12 +31,6 @@ impl Lexer {
         self.pos.advance(self.current())
     }
 
-    fn advance_x(&mut self, x: usize) {
-        for _ in 0..x {
-            self.advance();
-        }
-    }
-
     fn make_single<T>(&mut self, data: T) -> Positioned<T> {
         let start = self.pos.clone();
         let mut end = self.pos.clone();
