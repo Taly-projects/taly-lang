@@ -25,7 +25,12 @@ pub enum Node {
         data_type: Option<Positioned<String>>,
         value: Option<Box<Positioned<Node>>>
     },
-    VariableCall (String)
+    VariableCall(String),
+    BinaryOperation {
+        lhs: Box<Positioned<Node>>,
+        operator: Positioned<Operator>,
+        rhs: Box<Positioned<Node>>
+    }
 }
 
 impl Node {
@@ -43,6 +48,13 @@ impl Node {
             Node::Use(path) => format!("Use({})", path.data),
             Node::VariableDefinition { name, .. } => format!("Variable({})", name.data),
             Node::VariableCall(name) => format!("VariableCall({})", name),
+            Node::BinaryOperation { operator, .. } => match operator.data {
+                Operator::Add => format!("BinaryOP(Addition)"),
+                Operator::Subtract => format!("BinaryOP(Subtraction)"),
+                Operator::Multiply => format!("BinaryOP(Multiplication)"),
+                Operator::Divide => format!("BinaryOP(Division)"),
+                Operator::Assign => format!("BinaryOP(Assignment)"),
+            }
         }
     }
 
@@ -99,4 +111,19 @@ impl FunctionDefinitionParameter {
 pub enum VarType {
     Variable,
     Constant
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                            Operator                                            //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Operator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Assign
 }

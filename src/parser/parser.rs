@@ -1,4 +1,4 @@
-use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType}}};
+use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator}}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Parser                                             //
@@ -164,13 +164,83 @@ impl Parser {
     }
 
     fn parse_expr1(&mut self) -> Result<Positioned<Node>, ParserError> {
-        let left = self.parse_expr0()?;
+        let mut left = self.parse_expr0()?;
         self.advance();
+
+        while let Some(current) = self.current() {
+            let operator = match current.data {
+                Token::Star => current.convert(Operator::Multiply), 
+                Token::Slash => current.convert(Operator::Divide), 
+                _ => break
+            };
+            self.advance();
+
+            let right = self.parse_expr0()?;
+            self.advance();
+            
+            let start = left.start.clone();
+            let end = right.end.clone();
+            left = Positioned::new(Node::BinaryOperation { 
+                lhs: Box::new(left), 
+                operator, 
+                rhs: Box::new(right) 
+            }, start, end);
+        }
+
+        Ok(left)
+    }
+
+    fn parse_expr2(&mut self) -> Result<Positioned<Node>, ParserError> {
+        let mut left = self.parse_expr1()?;
+
+        while let Some(current) = self.current() {
+            let operator = match current.data {
+                Token::Plus => current.convert(Operator::Add), 
+                Token::Dash => current.convert(Operator::Subtract), 
+                _ => break
+            };
+            self.advance();
+
+            let right = self.parse_expr1()?;
+            
+            let start = left.start.clone();
+            let end = right.end.clone();
+            left = Positioned::new(Node::BinaryOperation { 
+                lhs: Box::new(left), 
+                operator, 
+                rhs: Box::new(right) 
+            }, start, end);
+        }
+
+        Ok(left)
+    }
+
+    fn parse_expr3(&mut self) -> Result<Positioned<Node>, ParserError> {
+        let mut left = self.parse_expr2()?;
+
+        while let Some(current) = self.current() {
+            let operator = match current.data {
+                Token::Equal => current.convert(Operator::Assign), 
+                _ => break
+            };
+            self.advance();
+
+            let right = self.parse_expr2()?;
+            
+            let start = left.start.clone();
+            let end = right.end.clone();
+            left = Positioned::new(Node::BinaryOperation { 
+                lhs: Box::new(left), 
+                operator, 
+                rhs: Box::new(right) 
+            }, start, end);
+        }
+
         Ok(left)
     }
 
     fn parse_expr(&mut self) -> Result<Positioned<Node>, ParserError> {
-        self.parse_expr1()
+        self.parse_expr3()
     }
 
     fn parse_use(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {

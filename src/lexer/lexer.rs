@@ -164,6 +164,10 @@ impl Lexer {
                         _ => tokens.push(self.make_single(Token::Equal))
                     }
                 }
+                '+' => tokens.push(self.make_single(Token::Plus)),
+                '-' => tokens.push(self.make_single(Token::Dash)),
+                '*' => tokens.push(self.make_single(Token::Star)),
+                '/' => tokens.push(self.make_single(Token::Slash)),
                 '\n' => {
                     let start = self.pos.clone();
                     let mut end = self.pos.clone();

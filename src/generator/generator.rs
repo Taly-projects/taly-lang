@@ -1,4 +1,4 @@
-use crate::{ir::output::{IROutput, IncludeType}, generator::project::Project, util::position::Positioned, parser::node::{Node, ValueNode}};
+use crate::{ir::output::{IROutput, IncludeType}, generator::project::Project, util::position::Positioned, parser::node::{Node, ValueNode, Operator}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           Generator                                         //
@@ -88,12 +88,35 @@ impl Generator {
         (true, buf)
     }
 
+    fn generate_binary_operation(&mut self, node: Positioned<Node>) -> (bool, String) {
+        let Node::BinaryOperation { lhs, operator, rhs } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+
+        buf.push('(');
+        buf.push_str(&self.generate_current(*lhs).1);
+        match operator.data {
+            Operator::Add => buf.push_str(" + "),
+            Operator::Subtract => buf.push_str(" - "),
+            Operator::Multiply => buf.push_str(" * "),
+            Operator::Divide => buf.push_str(" / "),
+            Operator::Assign => buf.push_str(" = "),
+        }
+        buf.push_str(&self.generate_current(*rhs).1);
+        buf.push(')');
+
+        (true, buf)
+    }
+
     fn generate_current(&mut self, node: Positioned<Node>) -> (bool, String) {
         match node.data {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
+            Node::BinaryOperation { .. } => self.generate_binary_operation(node),
             _ => unreachable!(),
         }
     }

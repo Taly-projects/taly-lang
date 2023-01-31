@@ -1,4 +1,4 @@
-use crate::{symbolizer::scope::{Scope, ScopeType}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode}, checker::error::CheckerError};
+use crate::{symbolizer::scope::{Scope, ScopeType}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType}, checker::error::CheckerError};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Node Info                                           //
@@ -219,11 +219,11 @@ impl Checker {
             return Err(CheckerError::SymbolNotFound(node.convert(name)));
         };
 
-        let ScopeType::Variable { name: def_name, data_type: def_data_type, initialized: def_initialized, .. } = &variable.get().scope else {
+        let ScopeType::Variable { var_type: def_var_type, name: def_name, data_type: def_data_type, initialized: def_initialized } = &variable.get().scope else {
             unreachable!()
         };
 
-        if !def_initialized {
+        if def_var_type.data == VarType::Constant && !def_initialized {
             return Err(CheckerError::VariableNotInitialized(def_name.clone()));
         }
 
@@ -234,6 +234,82 @@ impl Checker {
         })
     }
 
+    fn check_binary_operation(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::BinaryOperation { lhs, operator, rhs } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_lhs = self.check_node(*lhs.clone())?;
+        let checked_rhs = self.check_node(*rhs.clone())?;
+
+        match operator.data {
+            Operator::Add |
+            Operator::Subtract |
+            Operator::Multiply |
+            Operator::Divide => {
+                match (checked_lhs.data_type, checked_rhs.data_type) {
+                    (Some(lhs_type), Some(rhs_type)) => {
+                        self.check_type(rhs.convert(()), lhs_type.clone(), Some(rhs_type))?;
+                        return Ok(NodeInfo {
+                            checked: node.convert(Node::BinaryOperation { 
+                                lhs: Box::new(checked_lhs.checked), 
+                                operator, 
+                                rhs: Box::new(checked_rhs.checked)
+                            }),
+                            data_type: Some(lhs_type),
+                            selected: None,
+                        })
+                    }
+                    (Some(_), _) => Err(CheckerError::UnexpectedType(rhs.convert(None), None)),
+                    (_, _) => Err(CheckerError::UnexpectedType(lhs.convert(None), None)),
+                }
+                
+            }
+            Operator::Assign => {
+                if let Some(selected) = checked_lhs.selected {
+                    if let ScopeType::Variable { var_type, name, data_type, initialized } = &mut selected.get().scope {
+                        if var_type.data == VarType::Constant && *initialized {
+                            return Err(CheckerError::CannotAssignToConstant(node.convert(()), selected.get().pos.convert(name.data.clone())));
+                        }
+
+                        if let Some(data_type) = data_type {
+                            self.check_type(rhs.convert(()), data_type.clone(), checked_rhs.data_type)?;
+
+                            *initialized = true;
+                            return Ok(NodeInfo {
+                                checked: node.convert(Node::BinaryOperation { 
+                                    lhs: Box::new(checked_lhs.checked), 
+                                    operator, 
+                                    rhs: Box::new(checked_rhs.checked)
+                                }),
+                                data_type: Some(data_type.clone()),
+                                selected: None
+                            });
+                        } else if let Some(rhs_type) = checked_rhs.data_type {
+                            *data_type = Some(rhs_type.clone());
+                            *initialized = true;
+                            return Ok(NodeInfo {
+                                checked: node.convert(Node::BinaryOperation { 
+                                    lhs: Box::new(checked_lhs.checked), 
+                                    operator, 
+                                    rhs: Box::new(checked_rhs.checked)
+                                }),
+                                data_type: Some(rhs_type.clone()),
+                                selected: None
+                            });
+                        } else {
+                            return Err(CheckerError::CannotInferType(selected.get().pos.convert(name.data.clone())));
+                        }
+                    } else {
+                        return Err(CheckerError::CannotAssignToConstantExpression(node.convert(())));
+                    }
+                } else {
+                    return Err(CheckerError::CannotAssignToConstantExpression(node.convert(())));
+                }
+            },
+        }
+    }
+
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
             Node::Value(_) => self.check_value_node(node),
@@ -242,6 +318,7 @@ impl Checker {
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator and should have panicked in the symbolizer!"),
             Node::VariableDefinition { .. } => self.check_variable_definition(node),
             Node::VariableCall(_) => self.check_variable_call(node),
+            Node::BinaryOperation { .. } => self.check_binary_operation(node),
         }
     }
 
@@ -252,6 +329,10 @@ impl Checker {
             output.ast.push(self.check_node(node)?.checked);
             self.advance();
         }
+
+        // TODO: Check if types have been inferred (and set the type to the node)
+
+        // TODO: Check if all types have been inferred (for variables)
 
         Ok(output)
     }

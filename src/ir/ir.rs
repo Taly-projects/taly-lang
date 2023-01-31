@@ -95,7 +95,8 @@ impl IRGenerator {
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::Use(_) => Err(IRError::UnexpectedNode(node, None)),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
-            Node::VariableCall(_) => self.generate_variable_call(node)
+            Node::VariableCall(_) => self.generate_variable_call(node),
+            Node::BinaryOperation { .. } => self.generate_binary_operator(node),
         }
     }
 
@@ -105,7 +106,7 @@ impl IRGenerator {
         };
 
         let value_checked = if let Some(value) = value {
-            Some(Box::new(self.generate_variable_value(*value)?))
+            Some(Box::new(self.generate_expr(*value)?))
         } else {
             None
         };
@@ -118,14 +119,15 @@ impl IRGenerator {
         }))
     }
 
-    fn generate_variable_value(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_expr(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
         match node.data {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionDefinition { .. } => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::Use(_) => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
             Node::VariableDefinition { .. } => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
-            Node::VariableCall(_) => self.generate_variable_call(node)
+            Node::VariableCall(_) => self.generate_variable_call(node),
+            Node::BinaryOperation { .. } => self.generate_binary_operator(node),
         }
     }
 
@@ -135,6 +137,26 @@ impl IRGenerator {
         };
 
         Ok(node.convert(Node::VariableCall(name)))
+    }
+
+    fn generate_binary_operator(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+        let Node::BinaryOperation { lhs, operator, rhs } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let lhs_gen = self.generate_expr(*lhs)?;
+        let rhs_gen = self.generate_expr(*rhs)?;
+
+        // TODO: transform (5 + a = 2) to
+        // const _a = a;
+        // a = 2
+        // 5 + _a
+
+        Ok(node.convert(Node::BinaryOperation { 
+            lhs: Box::new(lhs_gen), 
+            operator, 
+            rhs: Box::new(rhs_gen) 
+        }))
     }
 
     pub fn generate(&mut self) -> Result<IROutput, IRError> {

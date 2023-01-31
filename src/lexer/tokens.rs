@@ -17,6 +17,10 @@ pub enum Token {
     Colon,
     RightDoubleArrow,
     Equal,
+    Plus,
+    Dash,
+    Star,
+    Slash,
     // Formatting
     Tab,
     NewLine
