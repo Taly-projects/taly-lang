@@ -91,7 +91,36 @@ impl IRGenerator {
             Node::FunctionDefinition { .. } => Err(IRError::UnexpectedNode(node, None)),
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::Use(_) => Err(IRError::UnexpectedNode(node, None)),
-            Node::VariableDefinition { .. } => todo!(),
+            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+        }
+    }
+
+    fn generate_variable_definition(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+        let Node::VariableDefinition { var_type, name, data_type, value } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let value_checked = if let Some(value) = value {
+            Some(Box::new(self.generate_variable_value(*value)?))
+        } else {
+            None
+        };
+
+        Ok(node.convert(Node::VariableDefinition { 
+            var_type, 
+            name, 
+            data_type, 
+            value: value_checked 
+        }))
+    }
+
+    fn generate_variable_value(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+        match node.data {
+            Node::Value(_) => self.generate_value(node),
+            Node::FunctionDefinition { .. } => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
+            Node::FunctionCall { .. } => self.generate_function_call(node),
+            Node::Use(_) => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
+            Node::VariableDefinition { .. } => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
         }
     }
 
@@ -115,7 +144,7 @@ impl IRGenerator {
 
                     output.includes.push(self.generate_include(path)?);
                 }
-                Node::VariableDefinition { .. } => todo!(),
+                Node::VariableDefinition { .. } => return Err(IRError::UnexpectedNode(current, None)),
             }
             self.advance();
         } 
