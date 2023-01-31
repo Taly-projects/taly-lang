@@ -52,6 +52,10 @@ impl Lexer {
         let end = self.pos.clone();
         if let Some(keyword) = Keyword::from_string(&buf) {
             Ok(Positioned::new(Token::Keyword(keyword), start, end))
+        } else if buf == "true" {
+            Ok(Positioned::new(Token::Bool(true), start, end))
+        } else if buf == "false" {
+            Ok(Positioned::new(Token::Bool(false), start, end))
         } else {
             Ok(Positioned::new(Token::Identifier(buf), start, end))
         }
@@ -78,6 +82,37 @@ impl Lexer {
         Ok(Positioned::new(Token::String(buf), start, end))
     }
 
+    pub fn make_number(&mut self) -> Result<Positioned<Token>, LexerError> {
+        let start = self.pos.clone();
+
+        let mut buf = String::new();
+        let mut dot = false;
+        loop {
+            let current = self.current();
+            if current == '.' {
+                if !dot {
+                    dot = true;
+                    buf.push('.');
+                } else {
+                    break;
+                }
+            } else if current.is_digit(10) {
+                buf.push(current);
+            } else if current == '_' {} else {
+                break;
+            }
+            self.advance();
+        }
+
+        let end = self.pos.clone();
+
+        if dot {
+            Ok(Positioned::new(Token::Decimal(buf), start, end))
+        } else {
+            Ok(Positioned::new(Token::Integer(buf), start, end))
+        }
+    }
+
     pub fn tokenize(&mut self) -> Result<Vec<Positioned<Token>>, LexerError> {
         let mut tokens = Vec::new();
         let mut space_count = 0;
@@ -86,7 +121,6 @@ impl Lexer {
         loop {
             let current = self.current();
 
-            
             if current == ' ' {
                 space_count += 1;
                 if space_count == 4 {
@@ -106,6 +140,10 @@ impl Lexer {
             match current {
                 'a'..='z' | 'A'..='Z' => {
                     tokens.push(self.make_identifier()?);
+                    continue;
+                }
+                '0'..='9' => {
+                    tokens.push(self.make_number()?);
                     continue;
                 }
                 '"' => tokens.push(self.make_string()?),

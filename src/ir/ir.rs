@@ -52,6 +52,9 @@ impl IRGenerator {
 
         match value {
             ValueNode::String(str) => Ok(node.convert(Node::Value(ValueNode::String(str.clone())))),
+            ValueNode::Bool(b) => Ok(node.convert(Node::Value(ValueNode::Bool(b)))),
+            ValueNode::Integer(num) => Ok(node.convert(Node::Value(ValueNode::Integer(num)))),
+            ValueNode::Decimal(num) => Ok(node.convert(Node::Value(ValueNode::Decimal(num)))),
         }
     }
 

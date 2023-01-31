@@ -48,6 +48,8 @@ impl Checker {
 
             match (found.data.as_str(), expected.data.as_str()) {
                 ("c_string", "String") | ("String", "c_string") => Ok(()),
+                ("c_int", "I32") | ("I32", "c_int") => Ok(()),
+                ("c_float", "F32") | ("F32", "c_float") => Ok(()),
                 (_, _) => Err(CheckerError::UnexpectedType(found_node.convert(Some(found.data.clone())), Some(expected)))
             }
         } else {
@@ -64,6 +66,21 @@ impl Checker {
             ValueNode::String(str) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::String(str.clone()))),
                 data_type: Some(node.convert("String".to_string())),
+                selected: None
+            }),
+            ValueNode::Bool(b) => Ok(NodeInfo {
+                checked: node.convert(Node::Value(ValueNode::Bool(b))),
+                data_type: Some(node.convert("Bool".to_string())),
+                selected: None
+            }),
+            ValueNode::Integer(num) => Ok(NodeInfo {
+                checked: node.convert(Node::Value(ValueNode::Integer(num))),
+                data_type: Some(node.convert("I32".to_string())),
+                selected: None
+            }),
+            ValueNode::Decimal(num) => Ok(NodeInfo {
+                checked: node.convert(Node::Value(ValueNode::Decimal(num))),
+                data_type: Some(node.convert("F32".to_string())),
                 selected: None
             }),
         }

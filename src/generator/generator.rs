@@ -29,6 +29,8 @@ impl Generator {
     fn generate_type(&mut self, data_type: String) -> String {
         match data_type.as_str() {
             "c_string" => "const char*".to_string(),
+            "c_int" => "int".to_string(),
+            "c_float" => "float".to_string(),
             _ => data_type
         }
     }
@@ -40,6 +42,9 @@ impl Generator {
 
         match value {
             ValueNode::String(str) => (true, format!("\"{}\"", str)),
+            ValueNode::Bool(b) => (true, format!("{}", b)),
+            ValueNode::Integer(num) => (true, format!("{}", num)),
+            ValueNode::Decimal(num) => (true, format!("{}", num)),
         }
     }
 

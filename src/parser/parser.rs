@@ -155,6 +155,9 @@ impl Parser {
         let current = self.expect_current(Some("expression".to_string()))?;
         match current.data.clone() {
             Token::String(str) => Ok(current.convert(Node::Value(ValueNode::String(str)))),
+            Token::Bool(b) => Ok(current.convert(Node::Value(ValueNode::Bool(b)))),
+            Token::Integer(num) => Ok(current.convert(Node::Value(ValueNode::Integer(num)))),
+            Token::Decimal(num) => Ok(current.convert(Node::Value(ValueNode::Decimal(num)))),
             Token::Identifier(id) => self.handle_id(current.convert(id)),
             _ => Err(ParserError::UnexpectedToken(current, Some("Expression".to_string())))
         }
@@ -305,7 +308,11 @@ impl Parser {
         let current = self.expect_current(None)?;
         match current.data.clone() {
             Token::Keyword(keyword) => self.handle_keyword(current.convert(keyword)).map(|x| Some(x)),
-            Token::String(_) | Token::Identifier(_) => self.parse_expr().map(|x| Some(x)),
+            Token::String(_) | 
+            Token::Bool(_) |
+            Token::Integer(_) |
+            Token::Decimal(_) |
+            Token::Identifier(_) => self.parse_expr().map(|x| Some(x)),
             Token::NewLine | Token::Tab => {
                 self.advance(); 
                 Ok(None)

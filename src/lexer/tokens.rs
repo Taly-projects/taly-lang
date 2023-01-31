@@ -7,6 +7,9 @@ pub enum Token {
     Keyword(Keyword),
     Identifier(String),
     String(String),
+    Integer(String),
+    Decimal(String),
+    Bool(bool),
     // Symbols
     LeftParenthesis,
     RightParenthesis,

@@ -34,6 +34,9 @@ impl Node {
         match self {
             Node::Value(value) => match value {
                 ValueNode::String(str) => format!("String({})", str),
+                ValueNode::Bool(b) => format!("Bool({})", b),
+                ValueNode::Integer(num) => format!("Integer({})", num),
+                ValueNode::Decimal(num) => format!("Decimal({})", num),
             },
             Node::FunctionDefinition { name, .. } => format!("Function({})", name.data),
             Node::FunctionCall { name, .. } => format!("FunctionCall({})", name.data),
@@ -54,6 +57,9 @@ impl Node {
 #[derive(Clone, Debug)]
 pub enum ValueNode {
     String(String),
+    Bool(bool),
+    Integer(String),
+    Decimal(String)
 }
 
 
