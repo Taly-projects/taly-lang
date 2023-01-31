@@ -62,6 +62,7 @@ impl Symbolizer {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
             Node::FunctionCall { .. } => Ok(()),
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator!"),
+            Node::VariableDefinition { .. } => todo!(),
         }
     }
 

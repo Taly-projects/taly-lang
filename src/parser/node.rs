@@ -18,7 +18,13 @@ pub enum Node {
         name: Positioned<String>,
         parameters: Vec<Positioned<Node>>
     },
-    Use(Positioned<String>)
+    Use(Positioned<String>),
+    VariableDefinition {
+        var_type: Positioned<VarType>,
+        name: Positioned<String>,
+        data_type: Option<Positioned<String>>,
+        value: Option<Box<Positioned<Node>>>
+    }
 }
 
 impl Node {
@@ -31,6 +37,7 @@ impl Node {
             Node::FunctionDefinition { name, .. } => format!("Function({})", name.data),
             Node::FunctionCall { name, .. } => format!("FunctionCall({})", name.data),
             Node::Use(path) => format!("Use({})", path.data),
+            Node::VariableDefinition { name, .. } => format!("Variable({})", name.data)
         }
     }
 
@@ -68,4 +75,16 @@ impl FunctionDefinitionParameter {
         }
     }
 
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                          Variable Type                                         //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+#[derive(Clone, Debug)]
+pub enum VarType {
+    Variable,
+    Constant
 }

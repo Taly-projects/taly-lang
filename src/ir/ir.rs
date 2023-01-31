@@ -91,6 +91,7 @@ impl IRGenerator {
             Node::FunctionDefinition { .. } => Err(IRError::UnexpectedNode(node, None)),
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::Use(_) => Err(IRError::UnexpectedNode(node, None)),
+            Node::VariableDefinition { .. } => todo!(),
         }
     }
 
@@ -114,6 +115,7 @@ impl IRGenerator {
 
                     output.includes.push(self.generate_include(path)?);
                 }
+                Node::VariableDefinition { .. } => todo!(),
             }
             self.advance();
         } 

@@ -1,4 +1,4 @@
-use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter}}};
+use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType}}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Parser                                             //
@@ -245,6 +245,46 @@ impl Parser {
         }, start, end))
     } 
 
+    fn parse_variable_definition(&mut self, var_type: Positioned<VarType>) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let start = var_type.start.clone();
+        
+        // Name
+        let name = self.expect_id()?;
+        self.advance();
+        let mut end = name.end.clone();
+
+        // Type
+        let mut data_type = None;
+        if let Some(current) = self.current() {
+            if current.data == Token::Colon {
+                self.advance();
+                data_type = Some(self.expect_id()?);
+                end = self.current().unwrap().end.clone();
+                self.advance();
+            }
+        }
+
+        // Value
+        let mut value = None;
+        if let Some(current) = self.current() {
+            if current.data == Token::Equal {
+                self.advance();
+                let expr = self.parse_expr()?;
+                end = expr.end.clone();
+                value = Some(Box::new(expr));
+            }
+        }
+
+
+        return Ok(Positioned::new(Node::VariableDefinition { 
+            var_type, 
+            name, 
+            data_type, 
+            value 
+        }, start, end))
+    }
+
     fn handle_keyword(&mut self, keyword: Positioned<Keyword>) -> Result<Positioned<Node>, ParserError> {
         match keyword.data {
             Keyword::Use => self.parse_use(keyword.start),
@@ -254,8 +294,8 @@ impl Parser {
                 _ = self.expect_token(Token::Keyword(Keyword::Fn))?;
                 self.parse_function_definition(keyword.start, true)
             },
-            Keyword::Var => todo!(),
-            Keyword::Const => todo!(),
+            Keyword::Var => self.parse_variable_definition(keyword.convert(VarType::Variable)),
+            Keyword::Const => self.parse_variable_definition(keyword.convert(VarType::Constant)),
         }
     }
 
