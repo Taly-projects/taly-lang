@@ -75,6 +75,10 @@ impl FunctionDefinitionParameter {
         }
     }
 
+    pub fn get_position(&self) -> Positioned<()> {
+        Positioned::new((), self.name.start.clone(), self.data_type.end.clone())
+    }
+
 }
 
 
@@ -83,7 +87,7 @@ impl FunctionDefinitionParameter {
 //                                          Variable Type                                         //
 //////////////////////////////////////////////////////////////////////////////////////////////////// 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VarType {
     Variable,
     Constant
