@@ -28,7 +28,7 @@ impl Symbolizer {
         };
 
         let mut function_scope = Scope::new(node.convert(()), ScopeType::Function { 
-            name, 
+            name: name.clone(), 
             params: parameters, 
             children: Vec::new(), 
             return_type, 
@@ -40,6 +40,11 @@ impl Symbolizer {
         // Symbolize children
         for node in body {
             self.symbolize_node(node, MutRef::new(&mut function_scope))?;
+        }
+
+        // Check if unique
+        if let Some(previous) = scope.get().enter_function(name.data.clone()) {
+            return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
 
         scope.get().add_child(function_scope);

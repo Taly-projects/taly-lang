@@ -14,7 +14,7 @@ impl SymbolizerError {
         match self {
             SymbolizerError::SymbolAlreadyDefined(symbol, here) => {
                 ErrorFormat::new(ErrorType::Error)
-                    .add_message(format!("Symbol '{}':", symbol.data), Some(symbol.convert(())))
+                    .add_message(format!("Symbol '{}' already defined:", symbol.data), Some(symbol.convert(())))
                     .add_message(format!("Defined here:"), Some(here.convert(())))
                     .set_step("Symbolizer".to_string()).print(src);
             },
