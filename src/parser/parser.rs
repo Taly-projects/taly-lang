@@ -248,7 +248,7 @@ impl Parser {
     fn parse_variable_definition(&mut self, var_type: Positioned<VarType>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let start = var_type.start.clone();
-        
+
         // Name
         let name = self.expect_id()?;
         self.advance();
@@ -274,6 +274,10 @@ impl Parser {
                 end = expr.end.clone();
                 value = Some(Box::new(expr));
             }
+        }
+
+        if var_type.data == VarType::Constant && value.is_none() {
+            return Err(ParserError::UninitializedConstant(name));
         }
 
 

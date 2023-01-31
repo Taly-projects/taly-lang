@@ -6,7 +6,8 @@ use crate::{util::{position::Positioned, source_file::SourceFile, error::{ErrorF
 
 pub enum ParserError {
     UnexpectedToken(Positioned<Token>, Option<String>),
-    UnexpectedEOF(Option<String>)
+    UnexpectedEOF(Option<String>),
+    UninitializedConstant(Positioned<String>)
 }
 
 impl ParserError {
@@ -31,6 +32,12 @@ impl ParserError {
                 }
                 ErrorFormat::new(ErrorType::Error).add_message(buf, None).set_step("parser".to_string()).print(src);
             },
+            ParserError::UninitializedConstant(var) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Constant '{}' is not initialized", var.data), Some(var.convert(())))
+                    .set_step("Parser".to_string())
+                    .print(src)
+            }
         }
     }
 
