@@ -9,6 +9,7 @@ pub enum CheckerError {
     UnexpectedType(Positioned<Option<String>>, Option<Positioned<String>>),
     TooManyParameters(usize, usize, Positioned<String>, Positioned<()>),
     NotEnoughParameters(usize, usize, Positioned<String>, Positioned<()>),
+    VariableNotInitialized(Positioned<String>)
 }
 
 impl CheckerError {
@@ -43,6 +44,11 @@ impl CheckerError {
                     .add_message(format!("Definition here:"), Some(definition.clone()))
                     .set_step("Checker".to_string()).print(src);
             },
+            CheckerError::VariableNotInitialized(name) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Variable '{}' not initialized: ", name.data), Some(name.convert(())))
+                    .set_step("Checker".to_string()).print(src);
+            }
         }
     }
 

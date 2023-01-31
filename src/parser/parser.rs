@@ -103,12 +103,10 @@ impl Parser {
             }
 
             // Node
-            println!("tabs: {:?}, current: {:?}", self.tabs, self.current());
             if let Some(node) = self.parse_current()? {
                 body.push(node);
                 first = false;
             }
-            println!("After: tabs: {:?}, current: {:?}", self.tabs, self.current());
         }
 
         Ok(())
@@ -146,10 +144,10 @@ impl Parser {
             if Token::LeftParenthesis == next.data {
                 self.parse_function_call(id)
             } else {
-                todo!("Variable call");
+                Ok(id.clone().convert(Node::VariableCall(id.data)))
             }
         } else {
-            todo!("Variable Call")
+            Ok(id.clone().convert(Node::VariableCall(id.data)))
         }
     }
 

@@ -88,8 +88,19 @@ impl Generator {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            Node::VariableCall(_) => self.generate_variable_call(node),
             _ => unreachable!(),
         }
+    }
+
+    fn generate_variable_call(&mut self, node: Positioned<Node>) -> (bool, String) {
+        let Node::VariableCall(name) = node.data.clone() else {
+            unreachable!()
+        };
+
+        let buf = format!("{}", name.clone());
+
+        (true, buf)
     }
 
     fn generate_root_function_definition(&mut self, node: Positioned<Node>, project: &mut Project) {

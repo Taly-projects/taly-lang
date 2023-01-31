@@ -7,6 +7,7 @@ use crate::{symbolizer::scope::{Scope, ScopeType}, ir::output::IROutput, util::{
 struct NodeInfo {
     pub checked: Positioned<Node>,
     pub data_type: Option<Positioned<String>>,
+    pub selected: Option<MutRef<Scope>>
 }
 
 
@@ -63,6 +64,7 @@ impl Checker {
             ValueNode::String(str) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::String(str.clone()))),
                 data_type: Some(node.convert("String".to_string())),
+                selected: None
             }),
         }
     }
@@ -103,6 +105,7 @@ impl Checker {
                 body: new_body 
             }),
             data_type: None,
+            selected: None
         })
     }
 
@@ -145,7 +148,8 @@ impl Checker {
                 name, 
                 parameters: checked_parameters
             }), 
-            data_type: def_return_type.clone()
+            data_type: def_return_type.clone(),
+            selected: None
         })
     }
 
@@ -156,7 +160,7 @@ impl Checker {
 
         // Find scope-symbol
         let Some(variable) = self.scope.get().get_variable(name.data.clone()) else {
-            return Err(CheckerError::SymbolNotFound(name));
+            unreachable!()
         };
 
         let ScopeType::Variable { data_type: def_data_type, .. } = &mut variable.get().scope else {
@@ -184,6 +188,32 @@ impl Checker {
                 data_type: def_data_type.clone(), 
                 value: value_checked
             }), data_type: None,
+            selected: None
+        })
+    }
+
+    fn check_variable_call(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::VariableCall(name) = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Find scope-symbol
+        let Some(variable) = self.scope.get().get_variable(name.clone()) else {
+            return Err(CheckerError::SymbolNotFound(node.convert(name)));
+        };
+
+        let ScopeType::Variable { name: def_name, data_type: def_data_type, initialized: def_initialized, .. } = &variable.get().scope else {
+            unreachable!()
+        };
+
+        if !def_initialized {
+            return Err(CheckerError::VariableNotInitialized(def_name.clone()));
+        }
+
+        Ok(NodeInfo {
+            checked: node.convert(Node::VariableCall(name.clone())),
+            data_type: def_data_type.clone(),
+            selected: Some(variable)
         })
     }
 
@@ -194,6 +224,7 @@ impl Checker {
             Node::FunctionCall { .. } => self.check_function_call(node),
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator and should have panicked in the symbolizer!"),
             Node::VariableDefinition { .. } => self.check_variable_definition(node),
+            Node::VariableCall(_) => self.check_variable_call(node),
         }
     }
 

@@ -92,6 +92,7 @@ impl IRGenerator {
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::Use(_) => Err(IRError::UnexpectedNode(node, None)),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            Node::VariableCall(_) => self.generate_variable_call(node)
         }
     }
 
@@ -121,7 +122,16 @@ impl IRGenerator {
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::Use(_) => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
             Node::VariableDefinition { .. } => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
+            Node::VariableCall(_) => self.generate_variable_call(node)
         }
+    }
+
+    fn generate_variable_call(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+        let Node::VariableCall(name) = node.data.clone() else {
+            unreachable!()
+        };
+
+        Ok(node.convert(Node::VariableCall(name)))
     }
 
     pub fn generate(&mut self) -> Result<IROutput, IRError> {
@@ -132,9 +142,7 @@ impl IRGenerator {
 
         while let Some(current) = self.current() {
             match current.data {
-                Node::Value(_) => return Err(IRError::UnexpectedNode(current, None)),
                 Node::FunctionDefinition { .. } => output.ast.push(self.generate_function_definition(current)?),
-                Node::FunctionCall { .. } => return Err(IRError::UnexpectedNode(current, None)),
                 Node::Use(path) => {
                     for include in output.includes.iter() {
                         if include.full_path() == format!("{}.h", path.data) {
@@ -144,7 +152,7 @@ impl IRGenerator {
 
                     output.includes.push(self.generate_include(path)?);
                 }
-                Node::VariableDefinition { .. } => return Err(IRError::UnexpectedNode(current, None)),
+                _ => return Err(IRError::UnexpectedNode(current, None)),
             }
             self.advance();
         } 

@@ -96,11 +96,10 @@ impl Symbolizer {
 
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
-            Node::Value(_) => Ok(()),
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
-            Node::FunctionCall { .. } => Ok(()),
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator!"),
             Node::VariableDefinition { .. } => self.symbolize_variable_definition(node, scope),
+            _ => Ok(())
         }
     }
 

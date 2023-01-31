@@ -24,7 +24,8 @@ pub enum Node {
         name: Positioned<String>,
         data_type: Option<Positioned<String>>,
         value: Option<Box<Positioned<Node>>>
-    }
+    },
+    VariableCall (String)
 }
 
 impl Node {
@@ -37,7 +38,8 @@ impl Node {
             Node::FunctionDefinition { name, .. } => format!("Function({})", name.data),
             Node::FunctionCall { name, .. } => format!("FunctionCall({})", name.data),
             Node::Use(path) => format!("Use({})", path.data),
-            Node::VariableDefinition { name, .. } => format!("Variable({})", name.data)
+            Node::VariableDefinition { name, .. } => format!("Variable({})", name.data),
+            Node::VariableCall(name) => format!("VariableCall({})", name),
         }
     }
 
@@ -51,7 +53,7 @@ impl Node {
 
 #[derive(Clone, Debug)]
 pub enum ValueNode {
-    String(String)
+    String(String),
 }
 
 
