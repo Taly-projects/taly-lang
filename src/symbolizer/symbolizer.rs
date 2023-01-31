@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError}, util::{reference::MutRef, position::{Positioned}}, parser::node::Node};
+use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Symbolizer                                          //
@@ -33,17 +33,33 @@ impl Symbolizer {
 
         let mut function_scope = Scope::new(node.convert(()), ScopeType::Function { 
             name: name.clone(), 
-            params: parameters, 
+            params: parameters.clone(), 
             children: Vec::new(), 
             return_type, 
             external
         }, Some(scope.clone()));
 
-        // TODO: Symbolize Params
+        // Symbolize Params
+        let function_scope_ref = MutRef::new(&mut function_scope);
+        for param in parameters {
+            let param_scope = Scope::new(param.get_position(), ScopeType::Variable { 
+                var_type: param.get_position().convert(VarType::Constant), 
+                name: param.name.clone(), 
+                data_type: Some(param.data_type.clone()), 
+                initialized: true 
+            }, Some(function_scope_ref.clone()));
+
+            // Check if unique
+            if let Some(previous) = scope.get().enter_variable(param.name.data.clone()) {
+                return Err(SymbolizerError::SymbolAlreadyDefined(param.name, previous.get().pos.clone()));
+            }
+
+            function_scope.add_child(param_scope);
+        }
 
         // Symbolize children
         for node in body {
-            self.symbolize_node(node, MutRef::new(&mut function_scope))?;
+            self.symbolize_node(node, function_scope_ref.clone())?;
         }
 
         // Check if unique
@@ -56,13 +72,35 @@ impl Symbolizer {
         Ok(())
     }
 
+    fn symbolize_variable_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
+        let Node::VariableDefinition { var_type, name, data_type, value } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let variable_scope = Scope::new(node.convert(()), ScopeType::Variable { 
+            var_type: var_type.clone(), 
+            name: name.clone(), 
+            data_type: data_type.clone(), 
+            initialized: value.is_some() 
+        }, Some(scope.clone()));
+
+        // Check if unique
+        if let Some(previous) = scope.get().enter_variable(name.data.clone()) {
+            return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
+        }
+
+        scope.get().add_child(variable_scope);
+
+        Ok(())
+    }
+
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::Value(_) => Ok(()),
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
             Node::FunctionCall { .. } => Ok(()),
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator!"),
-            Node::VariableDefinition { .. } => todo!(),
+            Node::VariableDefinition { .. } => self.symbolize_variable_definition(node, scope),
         }
     }
 

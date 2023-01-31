@@ -1,4 +1,4 @@
-use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::FunctionDefinitionParameter};
+use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::{FunctionDefinitionParameter, VarType}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                              Scope                                             //
@@ -15,6 +15,12 @@ pub enum ScopeType {
         children: Vec<Scope>,
         return_type: Option<Positioned<String>>,
         external: bool
+    },
+    Variable {
+        var_type: Positioned<VarType>,
+        name: Positioned<String>,
+        data_type: Option<Positioned<String>>,
+        initialized: bool,
     }
 }
 
@@ -53,6 +59,9 @@ impl Scope {
             ScopeType::Function { children, .. } => {
                 children.push(scope);
             }
+            ScopeType::Variable { .. } => {
+                panic!("cannot add child here!")
+            }
         }
     }
 
@@ -69,6 +78,7 @@ impl Scope {
                 None
             },
             ScopeType::Function { .. } => None,
+            ScopeType::Variable { .. } => None,
         }
     }
 
@@ -78,6 +88,42 @@ impl Scope {
         }
         if let Some(parent) = &self.parent {
             return parent.get().get_function(name);
+        }
+        None
+    }
+
+    pub fn enter_variable(&mut self, name: String) -> Option<MutRef<Scope>> {
+        match &mut self.scope {
+            ScopeType::Root { children } => {
+                for child in children.iter_mut() {
+                    if let ScopeType::Variable { name: c_name, .. } = &child.scope {
+                        if c_name.data == name {
+                            return Some(MutRef::new(child));
+                        }
+                    }
+                }
+                None
+            },
+            ScopeType::Function { children, .. } => {
+                for child in children.iter_mut() {
+                    if let ScopeType::Variable { name: c_name, .. } = &child.scope {
+                        if c_name.data == name {
+                            return Some(MutRef::new(child));
+                        }
+                    }
+                }
+                None
+            },
+            ScopeType::Variable { .. } => None,
+        }
+    }
+
+    pub fn get_variable(&mut self, name: String) -> Option<MutRef<Scope>> {
+        if let Some(fun) = self.enter_variable(name.clone()) {
+            return Some(fun);
+        }
+        if let Some(parent) = &self.parent {
+            return parent.get().get_variable(name);
         }
         None
     }
