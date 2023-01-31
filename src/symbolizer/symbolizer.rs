@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType}};
+use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Symbolizer                                          //
@@ -7,6 +7,7 @@ use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error:
 pub struct Symbolizer {
     ir_output: IROutput,
     index: usize,
+    body_index: usize
 }
 
 impl Symbolizer {
@@ -14,7 +15,8 @@ impl Symbolizer {
     pub fn new(ir_output: IROutput) -> Self {
         Self {
             ir_output,
-            index: 0, 
+            index: 0,
+            body_index: 0 
         }
     }
 
@@ -37,7 +39,7 @@ impl Symbolizer {
             children: Vec::new(), 
             return_type, 
             external
-        }, Some(scope.clone()));
+        }, Some(scope.clone()), self.body_index);
 
         // Symbolize Params
         let function_scope_ref = MutRef::new(&mut function_scope);
@@ -47,10 +49,10 @@ impl Symbolizer {
                 name: param.name.clone(), 
                 data_type: Some(param.data_type.clone()), 
                 initialized: true 
-            }, Some(function_scope_ref.clone()));
+            }, Some(function_scope_ref.clone()), 0);
 
             // Check if unique
-            if let Some(previous) = scope.get().enter_variable(param.name.data.clone()) {
+            if let Some(previous) = scope.get().enter_variable(Trace::full(), param.name.data.clone()) {
                 return Err(SymbolizerError::SymbolAlreadyDefined(param.name, previous.get().pos.clone()));
             }
 
@@ -58,12 +60,16 @@ impl Symbolizer {
         }
 
         // Symbolize children
+        let previous_body_index = self.body_index;
+        self.body_index = 0;
         for node in body {
             self.symbolize_node(node, function_scope_ref.clone())?;
+            self.body_index += 1;
         }
+        self.body_index = previous_body_index;
 
         // Check if unique
-        if let Some(previous) = scope.get().enter_function(name.data.clone()) {
+        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone()) {
             return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
 
@@ -82,10 +88,10 @@ impl Symbolizer {
             name: name.clone(), 
             data_type: data_type.clone(), 
             initialized: value.is_some() 
-        }, Some(scope.clone()));
+        }, Some(scope.clone()), self.body_index);
 
         // Check if unique
-        if let Some(previous) = scope.get().enter_variable(name.data.clone()) {
+        if let Some(previous) = scope.get().enter_variable(Trace::full(), name.data.clone()) {
             return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
 
@@ -107,6 +113,7 @@ impl Symbolizer {
         while let Some(current) = self.current() {
             self.symbolize_node(current, root.clone())?;
             self.advance();
+            self.body_index += 1;
         }
         
         Ok(())

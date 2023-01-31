@@ -1,4 +1,4 @@
-use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::{FunctionDefinitionParameter, VarType}};
+use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::{FunctionDefinitionParameter, VarType}, symbolizer::trace::Trace};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                              Scope                                             //
@@ -28,7 +28,8 @@ pub enum ScopeType {
 pub struct Scope {
     pub pos: Positioned<()>,
     pub scope: ScopeType,
-    pub parent: Option<MutRef<Scope>>
+    pub parent: Option<MutRef<Scope>>,
+    pub index: usize
 }
 
 impl Scope {
@@ -39,15 +40,17 @@ impl Scope {
             scope: ScopeType::Root { 
                 children: Vec::new()
             },
-            parent: None
+            parent: None,
+            index: 0
         }
     }
 
-    pub fn new(pos: Positioned<()>, scope: ScopeType, parent: Option<MutRef<Scope>>) -> Self {
+    pub fn new(pos: Positioned<()>, scope: ScopeType, parent: Option<MutRef<Scope>>, index: usize) -> Self {
         Self {
             pos,
             scope,
-            parent
+            parent,
+            index
         }
     }
 
@@ -65,12 +68,12 @@ impl Scope {
         }
     }
 
-    pub fn enter_function(&mut self, name: String) -> Option<MutRef<Scope>> {
+    pub fn enter_function(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
         match &mut self.scope {
             ScopeType::Root { children } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Function { name: c_name, .. } = &child.scope {
-                        if c_name.data == name {
+                        if c_name.data == name && (trace.full || child.index <= trace.index) {
                             return Some(MutRef::new(child));
                         }
                     }
@@ -82,22 +85,22 @@ impl Scope {
         }
     }
 
-    pub fn get_function(&mut self, name: String) -> Option<MutRef<Scope>> {
-        if let Some(fun) = self.enter_function(name.clone()) {
+    pub fn get_function(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        if let Some(fun) = self.enter_function(trace.clone(), name.clone()) {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
-            return parent.get().get_function(name);
+            return parent.get().get_function(*trace.parent.unwrap(), name);
         }
         None
     }
 
-    pub fn enter_variable(&mut self, name: String) -> Option<MutRef<Scope>> {
+    pub fn enter_variable(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
         match &mut self.scope {
             ScopeType::Root { children } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name {
+                        if c_name.data == name && (trace.full || child.index <= trace.index) {
                             return Some(MutRef::new(child));
                         }
                     }
@@ -107,7 +110,7 @@ impl Scope {
             ScopeType::Function { children, .. } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name {
+                        if c_name.data == name && (trace.full || child.index <= trace.index) {
                             return Some(MutRef::new(child));
                         }
                     }
@@ -118,12 +121,12 @@ impl Scope {
         }
     }
 
-    pub fn get_variable(&mut self, name: String) -> Option<MutRef<Scope>> {
-        if let Some(fun) = self.enter_variable(name.clone()) {
+    pub fn get_variable(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        if let Some(fun) = self.enter_variable(trace.clone(), name.clone()) {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
-            return parent.get().get_variable(name);
+            return parent.get().get_variable(*trace.parent.unwrap(), name);
         }
         None
     }

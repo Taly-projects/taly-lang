@@ -1,4 +1,4 @@
-use crate::{symbolizer::scope::{Scope, ScopeType}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType}, checker::error::CheckerError};
+use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType}, checker::error::CheckerError};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Node Info                                           //
@@ -19,7 +19,8 @@ struct NodeInfo {
 pub struct Checker {
     ir_output: IROutput,
     scope: MutRef<Scope>,
-    index: usize
+    index: usize,
+    trace: Trace
 }
 
 impl Checker {
@@ -28,7 +29,8 @@ impl Checker {
         Self {
             ir_output,
             scope,
-            index: 0
+            index: 0,
+            trace: Trace::default()
         }
     }
 
@@ -92,7 +94,7 @@ impl Checker {
         };
 
         // Enter Scope
-        if let Some(function) = self.scope.get().enter_function(name.data.clone()) {
+        if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone()) {
             self.scope = function;
         } else {
             unreachable!("Symbol '{}' not found", name.data);
@@ -101,10 +103,14 @@ impl Checker {
         // TODO: Check return
         // Check Body
         let mut new_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
         for child in body {
             let checked_child = self.check_node(child)?;
             new_body.push(checked_child.checked);
+            self.trace.index += 1;
         }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
 
         // Exit Scope
         if let Some(parent) = self.scope.get().parent.clone() {
@@ -132,7 +138,7 @@ impl Checker {
         };
 
         // Find scope-symbol
-        let Some(function) = self.scope.get().get_function(name.data.clone()) else {
+        let Some(function) = self.scope.get().get_function(self.trace.clone(), name.data.clone()) else {
             return Err(CheckerError::SymbolNotFound(name));
         };
 
@@ -176,7 +182,7 @@ impl Checker {
         };
 
         // Find scope-symbol
-        let Some(variable) = self.scope.get().get_variable(name.data.clone()) else {
+        let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.data.clone()) else {
             unreachable!()
         };
 
@@ -215,7 +221,7 @@ impl Checker {
         };
 
         // Find scope-symbol
-        let Some(variable) = self.scope.get().get_variable(name.clone()) else {
+        let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.clone()) else {
             return Err(CheckerError::SymbolNotFound(node.convert(name)));
         };
 
@@ -317,7 +323,7 @@ impl Checker {
 
         let checked_expr = self.check_node(*expr.clone())?;
 
-        // TODO: Check Type
+        // Check Type
         let ScopeType::Function { return_type, .. } = &self.scope.get().scope else {
             unreachable!()
         };
@@ -355,6 +361,7 @@ impl Checker {
         while let Some(node) = self.current() {
             output.ast.push(self.check_node(node)?.checked);
             self.advance();
+            self.trace.index += 1;
         }
 
         // TODO: Check if types have been inferred (and set the type to the node)
