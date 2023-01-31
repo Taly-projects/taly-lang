@@ -1,7 +1,7 @@
 use crate::{util::{position::Positioned, error::{ErrorFormat, ErrorType}, source_file::SourceFile}, parser::node::Node};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                           Lexer Error                                          //
+//                                            IR Error                                            //
 //////////////////////////////////////////////////////////////////////////////////////////////////// 
 
 pub enum IRError {

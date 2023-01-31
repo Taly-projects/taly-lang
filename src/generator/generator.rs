@@ -1,5 +1,9 @@
 use crate::{ir::output::{IROutput, IncludeType}, generator::project::Project, util::position::Positioned, parser::node::{Node, ValueNode}};
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                           Generator                                         //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
 pub struct Generator {
     ir_output: IROutput,
     index: usize

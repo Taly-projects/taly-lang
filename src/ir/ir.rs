@@ -1,5 +1,9 @@
 use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode}};
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                           IR Generator                                         //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
 pub struct IRGenerator {
     ast: Vec<Positioned<Node>>,
     index: usize

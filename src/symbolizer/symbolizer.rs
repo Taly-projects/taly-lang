@@ -1,5 +1,9 @@
 use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError}, util::{reference::MutRef, position::{Positioned}}, parser::node::Node};
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                            Symbolizer                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
 pub struct Symbolizer {
     ir_output: IROutput,
     index: usize,
