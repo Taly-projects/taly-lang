@@ -76,7 +76,20 @@ impl IRGenerator {
 
         let mut new_body = Vec::new();
         for child in body.iter() {
-            new_body.push(self.generate_function_definition_body(child.clone())?);
+            if return_type.is_some() && std::ptr::eq(child, body.last().unwrap()) {
+                match child.data {
+                    Node::Value(_) | 
+                    Node::FunctionCall { .. } | 
+                    Node::VariableCall(_) |
+                    Node::BinaryOperation { .. } => {
+                        new_body.push(child.convert(Node::Return(Box::new(self.generate_function_definition_body(child.clone())?))));
+                    }
+                    Node::Return(_) => new_body.push(self.generate_function_definition_body(child.clone())?),
+                    _ => return Err(IRError::UnexpectedNode(node, Some("expression".to_string()))),
+                }
+            } else {
+                new_body.push(self.generate_function_definition_body(child.clone())?);
+            }
         }
 
         Ok(node.convert(Node::FunctionDefinition { 

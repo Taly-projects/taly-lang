@@ -2,8 +2,7 @@ use "std-stdio"
 
 extern fn printf(msg: c_string)
 
-fn HELLO(): c_string =>
-    return "Hello"
+fn HELLO(): c_string => "Hello"
 
 fn main() =>
     const x: c_string = HELLO()
