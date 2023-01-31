@@ -7,7 +7,7 @@ use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::I
 struct NodeInfo {
     pub checked: Positioned<Node>,
     pub data_type: Option<Positioned<String>>,
-    pub selected: Option<MutRef<Scope>>
+    pub selected: Option<MutRef<Scope>>,
 }
 
 
@@ -20,7 +20,8 @@ pub struct Checker {
     ir_output: IROutput,
     scope: MutRef<Scope>,
     index: usize,
-    trace: Trace
+    trace: Trace,
+    pub inferred: Vec<(Trace, Positioned<String>)>
 }
 
 impl Checker {
@@ -30,7 +31,8 @@ impl Checker {
             ir_output,
             scope,
             index: 0,
-            trace: Trace::default()
+            trace: Trace::default(),
+            inferred: Vec::new()
         }
     }
 
@@ -292,6 +294,7 @@ impl Checker {
                                 selected: None
                             });
                         } else if let Some(rhs_type) = checked_rhs.data_type {
+                            self.inferred.push((selected.get().trace.clone(), rhs_type.clone()));
                             *data_type = Some(rhs_type.clone());
                             *initialized = true;
                             return Ok(NodeInfo {
@@ -364,9 +367,36 @@ impl Checker {
             self.trace.index += 1;
         }
 
-        // TODO: Check if types have been inferred (and set the type to the node)
-
         // TODO: Check if all types have been inferred (for variables)
+        
+        // Check if types have been inferred (and set the type to the node)
+        for (mut trace, data_type) in self.inferred.clone() {
+            let mut trace_back = Vec::new();
+            while trace.parent.is_some() {
+                trace_back.push(trace.index);
+                trace = *trace.clone().parent.unwrap();
+            }
+            trace_back.push(trace.index);
+
+            let mut list = MutRef::new(&mut output.ast);
+            for i in 0..(trace_back.len() - 1) {
+                let j = (trace_back.len() - 1) - i;
+                let trace_index = trace_back.get(j).unwrap();
+
+                let node = list.get().get_mut(*trace_index).unwrap();
+                match &mut node.data {
+                    Node::FunctionDefinition { body, .. } => list = MutRef::new(body),
+                    _ => unreachable!()
+                }
+            }
+
+            let node = list.get().get_mut(trace_back[0]).unwrap();
+            let Node::VariableDefinition { data_type: def_data_type, .. } = &mut node.data else {
+                unreachable!()
+            };
+
+            *def_data_type = Some(data_type);
+        }
 
         Ok(output)
     }

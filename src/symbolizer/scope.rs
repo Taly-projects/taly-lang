@@ -29,7 +29,7 @@ pub struct Scope {
     pub pos: Positioned<()>,
     pub scope: ScopeType,
     pub parent: Option<MutRef<Scope>>,
-    pub index: usize
+    pub trace: Trace
 }
 
 impl Scope {
@@ -41,16 +41,16 @@ impl Scope {
                 children: Vec::new()
             },
             parent: None,
-            index: 0
+            trace: Trace::default()
         }
     }
 
-    pub fn new(pos: Positioned<()>, scope: ScopeType, parent: Option<MutRef<Scope>>, index: usize) -> Self {
+    pub fn new(pos: Positioned<()>, scope: ScopeType, parent: Option<MutRef<Scope>>, trace: Trace) -> Self {
         Self {
             pos,
             scope,
             parent,
-            index
+            trace
         }
     }
 
@@ -73,7 +73,7 @@ impl Scope {
             ScopeType::Root { children } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Function { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.index <= trace.index) {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
                             return Some(MutRef::new(child));
                         }
                     }
@@ -100,7 +100,7 @@ impl Scope {
             ScopeType::Root { children } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.index <= trace.index) {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
                             return Some(MutRef::new(child));
                         }
                     }
@@ -110,7 +110,7 @@ impl Scope {
             ScopeType::Function { children, .. } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.index <= trace.index) {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
                             return Some(MutRef::new(child));
                         }
                     }

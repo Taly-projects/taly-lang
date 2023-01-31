@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Trace {
     pub full: bool,
     pub index: usize,
