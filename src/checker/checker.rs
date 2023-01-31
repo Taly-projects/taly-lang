@@ -149,13 +149,51 @@ impl Checker {
         })
     }
 
+    fn check_variable_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::VariableDefinition { var_type, name, value, .. } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Find scope-symbol
+        let Some(variable) = self.scope.get().get_variable(name.data.clone()) else {
+            return Err(CheckerError::SymbolNotFound(name));
+        };
+
+        let ScopeType::Variable { data_type: def_data_type, .. } = &mut variable.get().scope else {
+            unreachable!()
+        };
+
+        let value_checked = if let Some(value) = value {
+            let info = self.check_node(*value.clone())?;
+            if let Some(def_data_type) = def_data_type {
+                // Check type
+                self.check_type(value.convert(()), def_data_type.clone(), info.data_type)?;
+            } else if let Some(info_data_type) = info.data_type {
+                // Infer Type
+                *def_data_type = Some(info_data_type.clone());
+            }
+            Some(Box::new(info.checked))
+        } else {
+            None
+        };
+
+        Ok(NodeInfo {
+            checked: node.convert(Node::VariableDefinition { 
+                var_type, 
+                name, 
+                data_type: def_data_type.clone(), 
+                value: value_checked
+            }), data_type: None,
+        })
+    }
+
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
             Node::Value(_) => self.check_value_node(node),
             Node::FunctionDefinition { .. } => self.check_function_definition(node),
             Node::FunctionCall { .. } => self.check_function_call(node),
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator and should have panicked in the symbolizer!"),
-            Node::VariableDefinition { .. } => todo!(),
+            Node::VariableDefinition { .. } => self.check_variable_definition(node),
         }
     }
 
