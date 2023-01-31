@@ -26,6 +26,13 @@ impl Generator {
         self.index += 1;
     }
 
+    fn generate_type(&mut self, data_type: String) -> String {
+        match data_type.as_str() {
+            "c_string" => "const char*".to_string(),
+            _ => data_type
+        }
+    }
+
     fn generate_value(&mut self, node: Positioned<Node>) -> (bool, String) {
         let Node::Value(value) = node.data.clone() else {
             unreachable!()
@@ -57,10 +64,30 @@ impl Generator {
         (true, buf)
     }
 
+    fn generate_variable_definition(&mut self, node: Positioned<Node>) -> (bool, String) {
+        let Node::VariableDefinition { name, data_type, value, .. } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+
+        buf.push_str(&self.generate_type(data_type.expect("No type could be inferred!").data));
+        buf.push(' ');
+        buf.push_str(&name.data);
+        
+        if let Some(value) = value {
+            buf.push_str(" = ");
+            buf.push_str(&self.generate_current(*value).1);
+        }
+
+        (true, buf)
+    }
+
     fn generate_current(&mut self, node: Positioned<Node>) -> (bool, String) {
         match node.data {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionCall { .. } => self.generate_function_call(node),
+            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             _ => unreachable!(),
         }
     }
@@ -75,7 +102,7 @@ impl Generator {
         }
 
         let mut function_header = String::new();
-        function_header.push_str(&return_type.map_or("void".to_string(), |x| x.data));
+        function_header.push_str(&self.generate_type(return_type.map_or("void".to_string(), |x| x.data)));
         function_header.push(' ');
         function_header.push_str(&name.data);
         function_header.push('(');
