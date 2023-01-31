@@ -123,7 +123,7 @@ impl Lexer {
                             end.advance('>');
                             tokens.push(Positioned::new(Token::RightDoubleArrow, start, end));
                         }
-                        _ => todo!("equal")
+                        _ => tokens.push(self.make_single(Token::Equal))
                     }
                 }
                 '\n' => {

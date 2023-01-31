@@ -13,6 +13,7 @@ pub enum Token {
     Comma,
     Colon,
     RightDoubleArrow,
+    Equal,
     // Formatting
     Tab,
     NewLine
@@ -28,7 +29,9 @@ pub enum Token {
 pub enum Keyword {
     Use,
     Fn,
-    Extern
+    Extern,
+    Var,
+    Const
 }
 
 impl Keyword {
@@ -38,6 +41,8 @@ impl Keyword {
             "use" => Some(Keyword::Use),
             "fn" => Some(Keyword::Fn),
             "extern" => Some(Keyword::Extern),
+            "var" => Some(Keyword::Var),
+            "const" => Some(Keyword::Const),
             _ => None
         }
     }

@@ -254,6 +254,8 @@ impl Parser {
                 _ = self.expect_token(Token::Keyword(Keyword::Fn))?;
                 self.parse_function_definition(keyword.start, true)
             },
+            Keyword::Var => todo!(),
+            Keyword::Const => todo!(),
         }
     }
 
