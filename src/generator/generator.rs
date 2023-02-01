@@ -31,7 +31,7 @@ impl Generator {
             "c_string" => "const char*".to_string(),
             "c_int" => "int".to_string(),
             "c_float" => "float".to_string(),
-            _ => data_type
+            _ => format!("{}*", data_type)
         }
     }
 
@@ -45,7 +45,7 @@ impl Generator {
             ValueNode::Bool(b) => (true, format!("{}", b)),
             ValueNode::Integer(num) => (true, format!("{}", num)),
             ValueNode::Decimal(num) => (true, format!("{}", num)),
-            ValueNode::Type(str) => (true, format!("{}", str)),
+            ValueNode::Type(str) => (true, self.generate_type(str)),
         }
     }
 
