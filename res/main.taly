@@ -4,6 +4,8 @@ extern fn printf(msg: c_string)
 
 fn HELLO(): c_string => "Hello"
 
+fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
+
 fn main() =>
     const x: c_string = HELLO()
     printf(x)

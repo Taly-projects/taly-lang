@@ -126,8 +126,11 @@ impl Generator {
         };
 
         let mut buf = String::new();
-        buf.push_str("return ");
-        buf.push_str(&self.generate_current(*expr).1);
+        buf.push_str("return");
+        if let Some(expr) = expr {
+            buf.push(' ');
+            buf.push_str(&self.generate_current(*expr).1);
+        }
 
         (true, buf)
     }
@@ -163,7 +166,7 @@ impl Generator {
             if index != 0 {
                 function_header.push_str(", ");
             }
-            function_header.push_str(&param.data_type.data);
+            function_header.push_str(&self.generate_type(param.data_type.data));
             function_header.push(' ');
             function_header.push_str(&param.name.data);
             index += 1;
