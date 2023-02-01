@@ -21,6 +21,10 @@ pub enum ScopeType {
         name: Positioned<String>,
         data_type: Option<Positioned<String>>,
         initialized: bool,
+    },
+    Class {
+        name: Positioned<String>,
+        children: Vec<Scope>
     }
 }
 
@@ -56,10 +60,9 @@ impl Scope {
 
     pub fn add_child(&mut self, scope: Scope) {
         match &mut self.scope {
-            ScopeType::Root { children } => {
-                children.push(scope);
-            },
-            ScopeType::Function { children, .. } => {
+            ScopeType::Root { children } |
+            ScopeType::Function { children, .. } |
+            ScopeType::Class { children, .. } => {
                 children.push(scope);
             }
             ScopeType::Variable { .. } => {
@@ -68,9 +71,25 @@ impl Scope {
         }
     }
 
-    pub fn enter_function(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+    pub fn get_last(&mut self) -> MutRef<Scope> {
         match &mut self.scope {
-            ScopeType::Root { children } => {
+            ScopeType::Root { children } |
+            ScopeType::Function { children, .. } |
+            ScopeType::Class { children, .. } => {
+                MutRef::new(children.last_mut().unwrap())
+            }
+            ScopeType::Variable { .. } => {
+                panic!("cannot have children here!")
+            }
+        }
+    }
+
+    pub fn enter_function(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        println!("{:#?}", self);
+        println!("u");
+        match &mut self.scope {
+            ScopeType::Root { children } |
+            ScopeType::Class {children, ..} => {
                 for child in children.iter_mut() {
                     if let ScopeType::Function { name: c_name, .. } = &child.scope {
                         if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
@@ -97,17 +116,9 @@ impl Scope {
 
     pub fn enter_variable(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
         match &mut self.scope {
-            ScopeType::Root { children } => {
-                for child in children.iter_mut() {
-                    if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-                            return Some(MutRef::new(child));
-                        }
-                    }
-                }
-                None
-            },
-            ScopeType::Function { children, .. } => {
+            ScopeType::Root { children } |
+            ScopeType::Function { children, .. } |
+            ScopeType::Class { children, .. } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Variable { name: c_name, .. } = &child.scope {
                         if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
@@ -127,6 +138,34 @@ impl Scope {
         }
         if let Some(parent) = &self.parent {
             return parent.get().get_variable(*trace.parent.unwrap(), name);
+        }
+        None
+    }
+
+    pub fn enter_class(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        match &mut self.scope {
+            ScopeType::Root { children } |
+            ScopeType::Function { children, .. } |
+            ScopeType::Class { children, .. } => {
+                for child in children.iter_mut() {
+                    if let ScopeType::Class { name: c_name, .. } = &child.scope {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
+                            return Some(MutRef::new(child));
+                        }
+                    }
+                }
+                None
+            },
+            ScopeType::Variable { .. } => None,
+        }
+    }
+
+    pub fn get_class(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        if let Some(fun) = self.enter_class(trace.clone(), name.clone()) {
+            return Some(fun);
+        }
+        if let Some(parent) = &self.parent {
+            return parent.get().get_class(*trace.parent.unwrap(), name);
         }
         None
     }

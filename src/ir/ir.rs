@@ -110,13 +110,12 @@ impl IRGenerator {
     fn generate_function_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
             Node::Value(_) => self.generate_value(node),
-            Node::FunctionDefinition { .. } => Err(IRError::UnexpectedNode(node, None)),
             Node::FunctionCall { .. } => self.generate_function_call(node),
-            Node::Use(_) => Err(IRError::UnexpectedNode(node, None)),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operator(node),
             Node::Return(_) => self.generate_return(node),
+            _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
 
@@ -203,11 +202,6 @@ impl IRGenerator {
             }));
         }
 
-        // TODO: transform (5 + a = 2) to
-        // const _a = a;
-        // a = 2
-        // 5 + _a
-
         Ok(pre)
     }
 
@@ -232,6 +226,30 @@ impl IRGenerator {
         Ok(pre)
     }
 
+    fn generate_class_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::ClassDefinition { name, body, .. } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut new_body = Vec::new();
+        for node in body.iter() {
+            new_body.append(&mut self.generate_class_definition_body(node.clone())?);
+        }
+
+        Ok(vec![node.convert(Node::ClassDefinition { 
+            name, 
+            body: new_body 
+        })])
+    }
+
+    fn generate_class_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        match node.data {
+            Node::FunctionDefinition { .. } => self.generate_function_definition(node),
+            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            _ => Err(IRError::UnexpectedNode(node, None)),
+        }
+    }
+
     pub fn generate(&mut self) -> Result<IROutput, IRError> {
         let mut output = IROutput {
             includes: Vec::new(),
@@ -241,6 +259,7 @@ impl IRGenerator {
         while let Some(current) = self.current() {
             match current.data {
                 Node::FunctionDefinition { .. } => output.ast.append(&mut self.generate_function_definition(current)?),
+                Node::ClassDefinition { .. } => output.ast.append(&mut self.generate_class_definition(current)?),
                 Node::Use(path) => {
                     for include in output.includes.iter() {
                         if include.full_path() == format!("{}.h", path.data) {

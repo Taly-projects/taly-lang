@@ -31,7 +31,11 @@ pub enum Node {
         operator: Positioned<Operator>,
         rhs: Box<Positioned<Node>>
     },
-    Return(Option<Box<Positioned<Node>>>)
+    Return(Option<Box<Positioned<Node>>>),
+    ClassDefinition {
+        name: Positioned<String>,
+        body: Vec<Positioned<Node>>
+    }
 }
 
 impl Node {
@@ -56,7 +60,8 @@ impl Node {
                 Operator::Divide => format!("BinaryOP(Division)"),
                 Operator::Assign => format!("BinaryOP(Assignment)"),
             }
-            Node::Return(_) => format!("Return")
+            Node::Return(_) => format!("Return"),
+            Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
         }
     }
 

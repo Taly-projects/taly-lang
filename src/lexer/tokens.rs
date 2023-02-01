@@ -39,7 +39,8 @@ pub enum Keyword {
     Extern,
     Var,
     Const,
-    Return
+    Return,
+    Class
 }
 
 impl Keyword {
@@ -52,6 +53,7 @@ impl Keyword {
             "var" => Some(Keyword::Var),
             "const" => Some(Keyword::Const),
             "return" => Some(Keyword::Return),
+            "class" => Some(Keyword::Class),
             _ => None
         }
     }

@@ -33,7 +33,7 @@ impl Symbolizer {
             unreachable!()
         };
 
-        let mut function_scope = Scope::new(node.convert(()), ScopeType::Function { 
+        let function_scope = Scope::new(node.convert(()), ScopeType::Function { 
             name: name.clone(), 
             params: parameters.clone(), 
             children: Vec::new(), 
@@ -41,8 +41,15 @@ impl Symbolizer {
             external
         }, Some(scope.clone()), self.trace.clone());
 
+        // Check if unique
+        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone()) {
+            return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
+        }
+        
+        scope.get().add_child(function_scope);
+
         // Symbolize Params
-        let function_scope_ref = MutRef::new(&mut function_scope);
+        let function_scope_ref = scope.get().get_last();
         for param in parameters {
             let param_scope = Scope::new(param.get_position(), ScopeType::Variable { 
                 var_type: param.get_position().convert(VarType::Constant), 
@@ -56,7 +63,7 @@ impl Symbolizer {
                 return Err(SymbolizerError::SymbolAlreadyDefined(param.name, previous.get().pos.clone()));
             }
 
-            function_scope.add_child(param_scope);
+            function_scope_ref.get().add_child(param_scope);
         }
 
         // Symbolize children
@@ -66,13 +73,6 @@ impl Symbolizer {
             self.trace.index += 1;
         }
         self.trace = *self.trace.clone().parent.unwrap();
-
-        // Check if unique
-        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone()) {
-            return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
-        }
-
-        scope.get().add_child(function_scope);
 
         Ok(())
     }
@@ -99,11 +99,44 @@ impl Symbolizer {
         Ok(())
     }
 
+    fn symbolize_class_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
+        let Node::ClassDefinition { name, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let class_scope = Scope::new(node.convert(()), ScopeType::Class { 
+            name: name.clone(), 
+            children: Vec::new(),
+        }, Some(scope.clone()), self.trace.clone());
+
+        // Check if unique
+        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone()) {
+            return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
+        }
+
+        scope.get().add_child(class_scope);
+
+        let class_scope_ref = scope.get().get_last();
+
+        // Symbolize children
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in body {
+            self.symbolize_node(node, class_scope_ref.clone())?;
+            self.trace.index += 1;
+        }
+        self.trace = *self.trace.clone().parent.unwrap();
+
+        // scope.get().add_child(class_scope);
+
+        Ok(())
+    }
+
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator!"),
             Node::VariableDefinition { .. } => self.symbolize_variable_definition(node, scope),
+            Node::ClassDefinition { .. } => self.symbolize_class_definition(node, scope),
             _ => Ok(())
         }
     }

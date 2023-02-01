@@ -10,7 +10,7 @@ pub struct File {
 
 impl File {
 
-    fn new(name: String) -> File {
+    pub fn new(name: String) -> File {
         Self {
             name,
             header: String::new(),

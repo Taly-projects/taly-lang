@@ -375,6 +375,26 @@ impl Parser {
         }
     }
 
+    fn parse_class_definition(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let name = self.expect_id()?;
+        self.advance();
+        let mut end = name.end.clone();
+
+        self.tabs += 1;
+        let mut body = Vec::new();
+        self.parse_body(&mut body)?;
+        if let Some(last) = body.last() {
+            end = last.end.clone();
+        }
+        self.tabs -= 1;
+
+        Ok(Positioned::new(Node::ClassDefinition { 
+            name, 
+            body 
+        }, start, end))
+    }
+
     fn handle_keyword(&mut self, keyword: Positioned<Keyword>) -> Result<Positioned<Node>, ParserError> {
         match keyword.data {
             Keyword::Use => self.parse_use(keyword.start),
@@ -386,7 +406,8 @@ impl Parser {
             },
             Keyword::Var => self.parse_variable_definition(keyword.convert(VarType::Variable)),
             Keyword::Const => self.parse_variable_definition(keyword.convert(VarType::Constant)),
-            Keyword::Return => self.parse_return(keyword.convert(()))
+            Keyword::Return => self.parse_return(keyword.convert(())),
+            Keyword::Class => self.parse_class_definition(keyword.start)
         }
     }
 

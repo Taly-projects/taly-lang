@@ -1,4 +1,4 @@
-use crate::{ir::output::{IROutput, IncludeType}, generator::project::Project, util::position::Positioned, parser::node::{Node, ValueNode, Operator}};
+use crate::{ir::output::{IROutput, IncludeType}, generator::project::{Project, File}, util::position::Positioned, parser::node::{Node, ValueNode, Operator}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           Generator                                         //
@@ -147,13 +147,13 @@ impl Generator {
         }
     }
 
-    fn generate_root_function_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
+    fn generate_root_function_definition(&mut self, node: Positioned<Node>) -> File {
         let Node::FunctionDefinition { name, external, parameters, return_type, body } = node.data.clone() else {
             unreachable!()
         };
 
         if external {
-            return;
+            return File::new("_".to_string());
         }
 
         let mut function_header = String::new();
@@ -173,7 +173,7 @@ impl Generator {
         }
         function_header.push(')');
 
-        let file = project.get_file("main".to_string());
+        let mut file = File::new("_".to_string());
         if name.data != "main" {
             file.header.push_str(&function_header);
             file.header.push_str(";\n\n");
@@ -197,6 +197,58 @@ impl Generator {
         file.src.push('}');
         file.src.push('\n');
         file.src.push('\n');
+
+        file
+    }
+
+    fn generate_class_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
+        let Node::ClassDefinition { name, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Separate fields and methods
+        let mut fields = Vec::new();
+        let mut methods = Vec::new();
+        for node in body.iter() {
+            match node.data {
+                Node::FunctionDefinition { .. } => methods.push(node.clone()),
+                Node::VariableDefinition { .. } => fields.push(node.clone()),
+                _ => unreachable!()
+            }
+        }
+
+        // Create Structure
+        let mut struct_buf = String::new();
+        struct_buf.push_str("typedef struct ");
+        struct_buf.push_str(&name.data);
+        struct_buf.push_str(" { ");
+        if !fields.is_empty() {
+            struct_buf.push_str("\n");
+        }
+        for field in fields.iter() {
+            let Node::VariableDefinition { name, data_type, .. } = field.data.clone() else {
+                unreachable!()
+            };
+
+            struct_buf.push_str("\t");
+            struct_buf.push_str(&self.generate_type(data_type.expect("No Type Could be inferred!").data));
+            struct_buf.push_str(" ");
+            struct_buf.push_str(&name.data);
+            struct_buf.push_str(";");
+            struct_buf.push_str("\n");
+        }
+        struct_buf.push_str("} ");
+        struct_buf.push_str(&name.data);
+        struct_buf.push_str(";\n\n");
+
+        let file = project.get_file(name.data.clone());
+        file.header.push_str(&struct_buf);
+
+        for method in methods.iter() {
+            let fun_file = self.generate_root_function_definition(method.clone());
+            file.header.push_str(&fun_file.header);
+            file.src.push_str(&fun_file.src);
+        }
     }
 
     pub fn generate(&mut self) -> Project {
@@ -204,7 +256,13 @@ impl Generator {
 
         while let Some(node) = self.current() {
             match node.data {
-                Node::FunctionDefinition { .. } => self.generate_root_function_definition(node, &mut project),
+                Node::FunctionDefinition { .. } => {
+                    let file = self.generate_root_function_definition(node);
+                    let main_file = project.get_file("main".to_string());
+                    main_file.header.push_str(&file.header);
+                    main_file.src.push_str(&file.src);
+                }
+                Node::ClassDefinition { .. } => self.generate_class_definition(node, &mut project),
                 _ => unreachable!()
             }
             self.advance();

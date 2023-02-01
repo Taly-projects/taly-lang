@@ -120,6 +120,7 @@ fn main() {
     println!("{}", "\n/> Symbolizer".truecolor(81, 255, 255));
     let mut root_scope = Scope::root();
     symbolize(&src, ir_output.clone(), MutRef::new(&mut root_scope));
+    // std::fs::write("./scope_out.json", format!("{:#?}", root_scope)).unwrap();
     println!("{:#?}\n", root_scope);
     
     // Checker

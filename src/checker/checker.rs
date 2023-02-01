@@ -95,14 +95,18 @@ impl Checker {
             unreachable!()
         };
 
+        // println!("a: {:?}, fn: {}", self.scope, name.data);
+        // println!("{:#?}", self.scope.get());
         // Enter Scope
         if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone()) {
+            println!("Enter({}): {:?}, {:?}", name.data, self.scope, function);
+            function.get().parent = Some(self.scope.clone()); // FIXME: Somehow fix the problem
             self.scope = function;
         } else {
             unreachable!("Symbol '{}' not found", name.data);
         }
 
-        // TODO: Check return
+        println!("b");
         // Check Body
         let mut new_body = Vec::new();
         self.trace = Trace::new(0, self.trace.clone());
@@ -114,12 +118,15 @@ impl Checker {
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
 
+        println!("c");
         // Exit Scope
         if let Some(parent) = self.scope.get().parent.clone() {
+            println!("Exit({}): {:?}, {:?}", name.data, self.scope, parent);
             self.scope = parent;
         } else {
             unreachable!("Not parent after entering function!");
         }
+        println!("d");
 
         Ok(NodeInfo {
             checked: node.convert(Node::FunctionDefinition { 
@@ -361,6 +368,48 @@ impl Checker {
         })
     }
 
+    fn check_class_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::ClassDefinition { name, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Enter Scope
+        if let Some(class) = self.scope.get().enter_class(self.trace.clone(), name.data.clone()) {
+            // println!("enter class: {:?}:\n{:#?}", class, class.get());
+            self.scope = class;
+        } else {
+            unreachable!("Symbol '{}' not found", name.data);
+        }
+
+        // Check Body
+        let mut new_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
+        for child in body {
+            let checked_child = self.check_node(child)?;
+            new_body.push(checked_child.checked);
+            self.trace.index += 1;
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            // println!("Exit class: {:?}, \n{:#?}", parent, self.scope.get());
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
+        }
+
+        Ok(NodeInfo {
+            checked: node.convert(Node::ClassDefinition { 
+                name, 
+                body: new_body 
+            }),
+            data_type: None,
+            selected: None
+        })
+    }
+ 
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
             Node::Value(_) => self.check_value_node(node),
@@ -371,16 +420,14 @@ impl Checker {
             Node::VariableCall(_) => self.check_variable_call(node),
             Node::BinaryOperation { .. } => self.check_binary_operation(node),
             Node::Return(_) => self.check_return(node),
+            Node::ClassDefinition { .. } => self.check_class_definition(node),
         }
     }
 
     fn check_inference(&mut self, scope: &Scope) -> Result<(), CheckerError> {
         match &scope.scope {
-            ScopeType::Root { children } => {
-                for scope in children.iter() {
-                    self.check_inference(scope)?;
-                }
-            },
+            ScopeType::Root { children } |
+            ScopeType::Class { children, .. } |
             ScopeType::Function { children, .. } => {
                 for scope in children.iter() {
                     self.check_inference(scope)?;

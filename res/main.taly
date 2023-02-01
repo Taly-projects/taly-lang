@@ -1,5 +1,10 @@
 use "std-stdio"
 
+class I32
+    var inner: c_int = 0
+
+    fn BYE(): c_string => "BYE"
+
 extern fn printf(msg: c_string)
 
 fn HELLO(): c_string => "Hello"
