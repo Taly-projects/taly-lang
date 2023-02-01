@@ -31,7 +31,7 @@ pub enum Node {
         operator: Positioned<Operator>,
         rhs: Box<Positioned<Node>>
     },
-    Return(Box<Positioned<Node>>)
+    Return(Option<Box<Positioned<Node>>>)
 }
 
 impl Node {

@@ -360,11 +360,19 @@ impl Parser {
         }, start, end))
     }
 
-    fn parse_return(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
+    fn parse_return(&mut self, pos: Positioned<()>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
-        let expr = self.parse_expr()?;
-        let end = expr.end.clone();
-        Ok(Positioned::new(Node::Return(Box::new(expr)), start, end))
+        if let Some(current) = self.current() {
+            if current.data == Token::NewLine {
+                Ok(pos.convert(Node::Return(None)))
+            } else {
+                let expr = self.parse_expr()?;
+                let end = expr.end.clone();
+                Ok(Positioned::new(Node::Return(Some(Box::new(expr))), pos.start, end))
+            }
+        } else {
+            Ok(pos.convert(Node::Return(None)))
+        }
     }
 
     fn handle_keyword(&mut self, keyword: Positioned<Keyword>) -> Result<Positioned<Node>, ParserError> {
@@ -378,7 +386,7 @@ impl Parser {
             },
             Keyword::Var => self.parse_variable_definition(keyword.convert(VarType::Variable)),
             Keyword::Const => self.parse_variable_definition(keyword.convert(VarType::Constant)),
-            Keyword::Return => self.parse_return(keyword.start)
+            Keyword::Return => self.parse_return(keyword.convert(()))
         }
     }
 

@@ -82,7 +82,7 @@ impl IRGenerator {
                     Node::FunctionCall { .. } | 
                     Node::VariableCall(_) |
                     Node::BinaryOperation { .. } => {
-                        new_body.push(child.convert(Node::Return(Box::new(self.generate_function_definition_body(child.clone())?))));
+                        new_body.push(child.convert(Node::Return(Some(Box::new(self.generate_function_definition_body(child.clone())?)))));
                     }
                     Node::Return(_) => new_body.push(self.generate_function_definition_body(child.clone())?),
                     _ => return Err(IRError::UnexpectedNode(node, Some("expression".to_string()))),
@@ -176,9 +176,13 @@ impl IRGenerator {
             unreachable!()
         };
 
-        let expr_gen = self.generate_expr(*expr)?;
+        let expr_gen = if let Some(expr) = expr {
+            Some(Box::new(self.generate_expr(*expr)?))
+        } else {
+            None
+        };
 
-        Ok(node.convert(Node::Return(Box::new(expr_gen))))
+        Ok(node.convert(Node::Return(expr_gen)))
     }
 
     pub fn generate(&mut self) -> Result<IROutput, IRError> {

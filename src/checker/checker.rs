@@ -324,22 +324,29 @@ impl Checker {
             unreachable!()
         };
 
-        let checked_expr = self.check_node(*expr.clone())?;
-
         // Check Type
-        let ScopeType::Function { return_type, .. } = &self.scope.get().scope else {
+        let ScopeType::Function { return_type, .. } = &self.scope.get().clone().scope else {
             unreachable!()
         };
 
-        if let Some(return_type) = return_type {
+        let checked_return = if let Some(return_type) = return_type {
             // TODO: Infer type if variable
-            self.check_type(expr.convert(()), return_type.clone(), checked_expr.data_type)?;
+            if let Some(expr) = expr {
+                let checked_expr = self.check_node(*expr.clone())?;
+                self.check_type(expr.convert(()), return_type.clone(), checked_expr.data_type)?;
+                Some(Box::new(checked_expr.checked))
+            } else {
+                return Err(CheckerError::UnexpectedType(node.convert(None), Some(return_type.clone())));
+            }
+        } else if let Some(expr) = expr {
+            let checked_expr = self.check_node(*expr.clone())?;
+            return Err(CheckerError::UnexpectedType(node.convert(checked_expr.data_type.map(|x| x.data)), None));
         } else {
-            todo!("nothing to return")
-        }
+            None
+        };
 
         Ok(NodeInfo { 
-            checked: node.convert(Node::Return(Box::new(checked_expr.checked))), 
+            checked: node.convert(Node::Return(checked_return)), 
             data_type: None, 
             selected: None 
         })
