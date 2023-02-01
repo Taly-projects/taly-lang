@@ -87,11 +87,25 @@ impl Checker {
                 data_type: Some(node.convert("F32".to_string())),
                 selected: None
             }),
-            ValueNode::Type(str) => Ok(NodeInfo {
-                checked: node.convert(Node::Value(ValueNode::Type(str))),
-                data_type: None,
-                selected: None // TODO: Select Class (if possible)
-            }),
+            ValueNode::Type(str) => {
+                let selected = match str.as_str() {
+                    "c_string" | "c_int" | "c_float" => None,
+                    _ => {
+                        if let Some(class) = self.scope.get().get_class(self.trace.clone(), str.clone()) {
+                            Some(class)
+                        } else if let Some(space) = self.scope.get().get_space(self.trace.clone(), str.clone()) {
+                            Some(space)
+                        } else {
+                            todo!("Type not find!");
+                        }
+                    }
+                };
+                Ok(NodeInfo {
+                    checked: node.convert(Node::Value(ValueNode::Type(str))),
+                    data_type: None,
+                    selected
+                })
+        },
         }
     }
 
@@ -253,14 +267,14 @@ impl Checker {
             unreachable!()
         };
 
-        let checked_lhs = self.check_node(*lhs.clone())?;
-        let checked_rhs = self.check_node(*rhs.clone())?;
-
         match operator.data {
             Operator::Add |
             Operator::Subtract |
             Operator::Multiply |
             Operator::Divide => {
+                let checked_lhs = self.check_node(*lhs.clone())?;
+                let checked_rhs = self.check_node(*rhs.clone())?;
+
                 match (checked_lhs.data_type, checked_rhs.data_type) {
                     (Some(lhs_type), Some(rhs_type)) => {
                         self.check_type(rhs.convert(()), lhs_type.clone(), Some(rhs_type))?;
@@ -280,6 +294,9 @@ impl Checker {
                 
             }
             Operator::Assign => {
+                let checked_lhs = self.check_node(*lhs.clone())?;
+                let checked_rhs = self.check_node(*rhs.clone())?;
+                
                 if let Some(selected) = checked_lhs.selected {
                     if let ScopeType::Variable { var_type, name, data_type, initialized } = &mut selected.get().scope {
                         if var_type.data == VarType::Constant && *initialized {
@@ -322,6 +339,29 @@ impl Checker {
                     return Err(CheckerError::CannotAssignToConstantExpression(node.convert(())));
                 }
             },
+            Operator::Access => {
+                let checked_lhs = self.check_node(*lhs.clone())?;
+                if let Some(selected) = checked_lhs.selected {
+                    let prev_scope = self.scope.clone();
+                    self.scope = selected;
+
+                    let checked_rhs = self.check_node(*rhs.clone())?;
+
+                    self.scope = prev_scope;
+
+                    return Ok(NodeInfo {
+                        checked: node.convert(Node::BinaryOperation { 
+                            lhs: Box::new(checked_lhs.checked), 
+                            operator, 
+                            rhs: Box::new(checked_rhs.checked) 
+                        }),
+                        data_type: checked_rhs.data_type,
+                        selected: checked_rhs.selected
+                    })
+                } else {
+                    todo!("Error nothing selected!")
+                }
+            }
         }
     }
 

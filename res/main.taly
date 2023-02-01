@@ -4,7 +4,7 @@ class I32
     var inner: c_int = 0
 
     new create(value: c_int) =>
-        inner = value
+        self.inner = value
 
     fn BYE(): c_string => "BYE"
 

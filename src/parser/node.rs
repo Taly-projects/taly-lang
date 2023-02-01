@@ -71,6 +71,7 @@ impl Node {
                 Operator::Multiply => format!("BinaryOP(Multiplication)"),
                 Operator::Divide => format!("BinaryOP(Division)"),
                 Operator::Assign => format!("BinaryOP(Assignment)"),
+                Operator::Access => format!("BinaryOP(Access)"),
             }
             Node::Return(_) => format!("Return"),
             Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
@@ -147,5 +148,6 @@ pub enum Operator {
     Subtract,
     Multiply,
     Divide,
-    Assign
+    Assign,
+    Access
 }

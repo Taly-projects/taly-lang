@@ -21,6 +21,7 @@ pub enum Token {
     Dash,
     Star,
     Slash,
+    Dot,
     // Formatting
     Tab,
     NewLine
