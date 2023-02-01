@@ -330,9 +330,18 @@ impl Checker {
         };
 
         let checked_return = if let Some(return_type) = return_type {
-            // TODO: Infer type if variable
             if let Some(expr) = expr {
                 let checked_expr = self.check_node(*expr.clone())?;
+                if let Some(selected) = checked_expr.selected {
+                    if let ScopeType::Variable { name, initialized, data_type, .. } = &selected.get().scope {
+                        if !initialized { 
+                            return Err(CheckerError::VariableNotInitialized(selected.get().pos.convert(name.data.clone())))
+                        } if data_type.is_none() {
+                            return Err(CheckerError::CannotInferType(selected.get().pos.convert(name.data.clone())));
+                        } 
+                    }
+                }
+
                 self.check_type(expr.convert(()), return_type.clone(), checked_expr.data_type)?;
                 Some(Box::new(checked_expr.checked))
             } else {
