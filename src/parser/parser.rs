@@ -225,7 +225,7 @@ impl Parser {
             };
             self.advance();
 
-            let right = self.parse_expr2()?;
+            let right = self.parse_expr3()?;
             
             let start = left.start.clone();
             let end = right.end.clone();

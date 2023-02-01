@@ -1,4 +1,4 @@
-use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode}};
+use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           IR Generator                                         //
@@ -6,7 +6,8 @@ use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, 
 
 pub struct IRGenerator {
     ast: Vec<Positioned<Node>>,
-    index: usize
+    index: usize,
+    temp_id: usize,
 }
 
 impl IRGenerator {
@@ -14,7 +15,8 @@ impl IRGenerator {
     pub fn new(ast: Vec<Positioned<Node>>) -> Self {
         Self {
             ast,
-            index: 0
+            index: 0,
+            temp_id: 0
         }
     }
 
@@ -45,31 +47,31 @@ impl IRGenerator {
         }
     }
 
-    fn generate_value(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_value(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::Value(value) = node.data.clone() else {
             unreachable!()
         };
 
         match value {
-            ValueNode::String(str) => Ok(node.convert(Node::Value(ValueNode::String(str.clone())))),
-            ValueNode::Bool(b) => Ok(node.convert(Node::Value(ValueNode::Bool(b)))),
-            ValueNode::Integer(num) => Ok(node.convert(Node::Value(ValueNode::Integer(num)))),
-            ValueNode::Decimal(num) => Ok(node.convert(Node::Value(ValueNode::Decimal(num)))),
+            ValueNode::String(str) => Ok(vec![node.convert(Node::Value(ValueNode::String(str.clone())))]),
+            ValueNode::Bool(b) => Ok(vec![node.convert(Node::Value(ValueNode::Bool(b)))]),
+            ValueNode::Integer(num) => Ok(vec![node.convert(Node::Value(ValueNode::Integer(num)))]),
+            ValueNode::Decimal(num) => Ok(vec![node.convert(Node::Value(ValueNode::Decimal(num)))]),
         }
     }
 
-    fn generate_function_call(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_function_call(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::FunctionCall { name, parameters } = node.data.clone() else {
             unreachable!()
         };
 
-        Ok(node.convert(Node::FunctionCall { 
+        Ok(vec![node.convert(Node::FunctionCall { 
             name: name.clone(), 
             parameters: parameters.clone()
-        }))
+        })])
     }
 
-    fn generate_function_definition(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_function_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::FunctionDefinition { name, external, parameters, return_type, body } = node.data.clone() else {
             unreachable!()
         };
@@ -82,26 +84,30 @@ impl IRGenerator {
                     Node::FunctionCall { .. } | 
                     Node::VariableCall(_) |
                     Node::BinaryOperation { .. } => {
-                        new_body.push(child.convert(Node::Return(Some(Box::new(self.generate_function_definition_body(child.clone())?)))));
+                        let mut child_checked = self.generate_function_definition_body(child.clone())?;
+                        let child_last = child_checked.pop().unwrap();
+                        new_body.append(&mut child_checked);
+
+                        new_body.push(child.convert(Node::Return(Some(Box::new(child_last)))));
                     }
-                    Node::Return(_) => new_body.push(self.generate_function_definition_body(child.clone())?),
+                    Node::Return(_) => new_body.append(&mut self.generate_function_definition_body(child.clone())?),
                     _ => return Err(IRError::UnexpectedNode(node, Some("expression".to_string()))),
                 }
             } else {
-                new_body.push(self.generate_function_definition_body(child.clone())?);
+                new_body.append(&mut self.generate_function_definition_body(child.clone())?);
             }
         }
 
-        Ok(node.convert(Node::FunctionDefinition { 
+        Ok(vec![node.convert(Node::FunctionDefinition { 
             name: name.clone(), 
             external: external.clone(), 
             parameters: parameters.clone(), 
             return_type: return_type.clone(), 
             body: new_body 
-        }))
+        })])
     }
 
-    fn generate_function_definition_body(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_function_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionDefinition { .. } => Err(IRError::UnexpectedNode(node, None)),
@@ -114,26 +120,32 @@ impl IRGenerator {
         }
     }
 
-    fn generate_variable_definition(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_variable_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::VariableDefinition { var_type, name, data_type, value } = node.data.clone() else {
             unreachable!()
         };
 
+        let mut pre = Vec::new();
         let value_checked = if let Some(value) = value {
-            Some(Box::new(self.generate_expr(*value)?))
+            let mut value_checked = self.generate_expr(*value)?;
+            let value_last = value_checked.pop().unwrap();
+            pre.append(&mut value_checked);
+            Some(Box::new(value_last))
         } else {
             None
         };
 
-        Ok(node.convert(Node::VariableDefinition { 
+        pre.push(node.convert(Node::VariableDefinition { 
             var_type, 
             name, 
             data_type, 
             value: value_checked 
-        }))
+        }));
+
+        Ok(pre)
     }
 
-    fn generate_expr(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_expr(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionCall { .. } => self.generate_function_call(node),
@@ -143,46 +155,81 @@ impl IRGenerator {
         }
     }
 
-    fn generate_variable_call(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_variable_call(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::VariableCall(name) = node.data.clone() else {
             unreachable!()
         };
 
-        Ok(node.convert(Node::VariableCall(name)))
+        Ok(vec![node.convert(Node::VariableCall(name))])
     }
 
-    fn generate_binary_operator(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_binary_operator(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::BinaryOperation { lhs, operator, rhs } = node.data.clone() else {
             unreachable!()
         };
 
-        let lhs_gen = self.generate_expr(*lhs)?;
-        let rhs_gen = self.generate_expr(*rhs)?;
+        let mut lhs_gen = self.generate_expr(*lhs)?;
+        let mut rhs_gen = self.generate_expr(*rhs)?;
+
+        let mut pre = Vec::new();
+        
+        let lhs_last = lhs_gen.pop().unwrap();
+        pre.append(&mut lhs_gen);
+        let rhs_last = rhs_gen.pop().unwrap();
+        pre.append(&mut rhs_gen);
+
+        if operator.data == Operator::Assign {
+            let id = format!("_temp{}", self.temp_id);
+            pre.push(node.convert(Node::VariableDefinition { 
+                var_type: node.convert(VarType::Constant), 
+                name: node.convert(id.clone()), 
+                data_type: None, 
+                value: Some(Box::new(lhs_last.clone())) 
+            }));
+            self.temp_id += 1;
+
+            pre.push(node.convert(Node::BinaryOperation { 
+                lhs: Box::new(lhs_last.clone()), 
+                operator, 
+                rhs: Box::new(rhs_last) 
+            }));
+
+            pre.push(node.convert(Node::VariableCall(id.clone())));
+        } else {
+            pre.push(node.convert(Node::BinaryOperation { 
+                lhs: Box::new(lhs_last), 
+                operator, 
+                rhs: Box::new(rhs_last) 
+            }));
+        }
 
         // TODO: transform (5 + a = 2) to
         // const _a = a;
         // a = 2
         // 5 + _a
 
-        Ok(node.convert(Node::BinaryOperation { 
-            lhs: Box::new(lhs_gen), 
-            operator, 
-            rhs: Box::new(rhs_gen) 
-        }))
+        Ok(pre)
     }
 
-    fn generate_return(&mut self, node: Positioned<Node>) -> Result<Positioned<Node>, IRError> {
+    fn generate_return(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::Return(expr) = node.data.clone() else {
             unreachable!()
         };
 
+        let mut pre = Vec::new();
         let expr_gen = if let Some(expr) = expr {
-            Some(Box::new(self.generate_expr(*expr)?))
+            let mut expr_gen = self.generate_expr(*expr)?;
+            let expr_last = expr_gen.pop().unwrap();
+            pre.append(&mut expr_gen);
+
+            Some(Box::new(expr_last))
         } else {
             None
         };
 
-        Ok(node.convert(Node::Return(expr_gen)))
+        pre.push(node.convert(Node::Return(expr_gen)));
+
+        Ok(pre)
     }
 
     pub fn generate(&mut self) -> Result<IROutput, IRError> {
@@ -193,7 +240,7 @@ impl IRGenerator {
 
         while let Some(current) = self.current() {
             match current.data {
-                Node::FunctionDefinition { .. } => output.ast.push(self.generate_function_definition(current)?),
+                Node::FunctionDefinition { .. } => output.ast.append(&mut self.generate_function_definition(current)?),
                 Node::Use(path) => {
                     for include in output.includes.iter() {
                         if include.full_path() == format!("{}.h", path.data) {

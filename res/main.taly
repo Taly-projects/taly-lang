@@ -7,5 +7,8 @@ fn HELLO(): c_string => "Hello"
 fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
 
 fn main() =>
+    var y: c_int = 3
+    var z: c_int = 4
+    z = y = z
     const x: c_string = HELLO()
     printf(x)
