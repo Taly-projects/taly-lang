@@ -251,6 +251,30 @@ impl Generator {
         }
     }
 
+
+    fn generate_space_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
+        let Node::SpaceDefinition { name, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Separate methods
+        let mut methods = Vec::new();
+        for node in body.iter() {
+            match node.data {
+                Node::FunctionDefinition { .. } => methods.push(node.clone()),
+                _ => unreachable!()
+            }
+        }
+
+        let file = project.get_file(name.data.clone());
+
+        for method in methods.iter() {
+            let fun_file = self.generate_root_function_definition(method.clone());
+            file.header.push_str(&fun_file.header);
+            file.src.push_str(&fun_file.src);
+        }
+    }
+
     pub fn generate(&mut self) -> Project {
         let mut project = Project::new();
 
@@ -263,6 +287,7 @@ impl Generator {
                     main_file.src.push_str(&file.src);
                 }
                 Node::ClassDefinition { .. } => self.generate_class_definition(node, &mut project),
+                Node::SpaceDefinition { .. } => self.generate_space_definition(node, &mut project),
                 _ => unreachable!()
             }
             self.advance();

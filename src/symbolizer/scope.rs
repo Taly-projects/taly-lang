@@ -25,6 +25,10 @@ pub enum ScopeType {
     Class {
         name: Positioned<String>,
         children: Vec<Scope>
+    },
+    Space {
+        name: Positioned<String>,
+        children: Vec<Scope>
     }
 }
 
@@ -62,7 +66,8 @@ impl Scope {
         match &mut self.scope {
             ScopeType::Root { children } |
             ScopeType::Function { children, .. } |
-            ScopeType::Class { children, .. } => {
+            ScopeType::Class { children, .. } |
+            ScopeType::Space { children, .. } => {
                 children.push(scope);
             }
             ScopeType::Variable { .. } => {
@@ -75,7 +80,8 @@ impl Scope {
         match &mut self.scope {
             ScopeType::Root { children } |
             ScopeType::Function { children, .. } |
-            ScopeType::Class { children, .. } => {
+            ScopeType::Class { children, .. } |
+            ScopeType::Space { children, .. } => {
                 MutRef::new(children.last_mut().unwrap())
             }
             ScopeType::Variable { .. } => {
@@ -89,7 +95,8 @@ impl Scope {
         println!("u");
         match &mut self.scope {
             ScopeType::Root { children } |
-            ScopeType::Class {children, ..} => {
+            ScopeType::Class {children, ..} |
+            ScopeType::Space { children, .. } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Function { name: c_name, .. } = &child.scope {
                         if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
@@ -118,7 +125,8 @@ impl Scope {
         match &mut self.scope {
             ScopeType::Root { children } |
             ScopeType::Function { children, .. } |
-            ScopeType::Class { children, .. } => {
+            ScopeType::Class { children, .. } |
+            ScopeType::Space { children, .. } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Variable { name: c_name, .. } = &child.scope {
                         if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
@@ -146,7 +154,8 @@ impl Scope {
         match &mut self.scope {
             ScopeType::Root { children } |
             ScopeType::Function { children, .. } |
-            ScopeType::Class { children, .. } => {
+            ScopeType::Class { children, .. } |
+            ScopeType::Space { children, .. } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Class { name: c_name, .. } = &child.scope {
                         if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
@@ -166,6 +175,35 @@ impl Scope {
         }
         if let Some(parent) = &self.parent {
             return parent.get().get_class(*trace.parent.unwrap(), name);
+        }
+        None
+    }
+
+    pub fn enter_space(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        match &mut self.scope {
+            ScopeType::Root { children } |
+            ScopeType::Function { children, .. } |
+            ScopeType::Class { children, .. } |
+            ScopeType::Space { children, .. } => {
+                for child in children.iter_mut() {
+                    if let ScopeType::Space { name: c_name, .. } = &child.scope {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
+                            return Some(MutRef::new(child));
+                        }
+                    }
+                }
+                None
+            },
+            ScopeType::Variable { .. } => None,
+        }
+    }
+
+    pub fn get_space(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        if let Some(fun) = self.enter_space(trace.clone(), name.clone()) {
+            return Some(fun);
+        }
+        if let Some(parent) = &self.parent {
+            return parent.get().get_space(*trace.parent.unwrap(), name);
         }
         None
     }

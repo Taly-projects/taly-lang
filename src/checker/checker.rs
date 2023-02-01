@@ -375,7 +375,6 @@ impl Checker {
 
         // Enter Scope
         if let Some(class) = self.scope.get().enter_class(self.trace.clone(), name.data.clone()) {
-            // println!("enter class: {:?}:\n{:#?}", class, class.get());
             self.scope = class;
         } else {
             unreachable!("Symbol '{}' not found", name.data);
@@ -394,7 +393,6 @@ impl Checker {
 
         // Exit Scope
         if let Some(parent) = self.scope.get().parent.clone() {
-            // println!("Exit class: {:?}, \n{:#?}", parent, self.scope.get());
             self.scope = parent;
         } else {
             unreachable!("Not parent after entering function!");
@@ -402,6 +400,46 @@ impl Checker {
 
         Ok(NodeInfo {
             checked: node.convert(Node::ClassDefinition { 
+                name, 
+                body: new_body 
+            }),
+            data_type: None,
+            selected: None
+        })
+    }
+
+    fn check_space_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::SpaceDefinition { name, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Enter Scope
+        if let Some(class) = self.scope.get().enter_space(self.trace.clone(), name.data.clone()) {
+            self.scope = class;
+        } else {
+            unreachable!("Symbol '{}' not found", name.data);
+        }
+
+        // Check Body
+        let mut new_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
+        for child in body {
+            let checked_child = self.check_node(child)?;
+            new_body.push(checked_child.checked);
+            self.trace.index += 1;
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
+        }
+
+        Ok(NodeInfo {
+            checked: node.convert(Node::SpaceDefinition { 
                 name, 
                 body: new_body 
             }),
@@ -421,6 +459,7 @@ impl Checker {
             Node::BinaryOperation { .. } => self.check_binary_operation(node),
             Node::Return(_) => self.check_return(node),
             Node::ClassDefinition { .. } => self.check_class_definition(node),
+            Node::SpaceDefinition { .. } => self.check_space_definition(node),
         }
     }
 
@@ -428,7 +467,8 @@ impl Checker {
         match &scope.scope {
             ScopeType::Root { children } |
             ScopeType::Class { children, .. } |
-            ScopeType::Function { children, .. } => {
+            ScopeType::Function { children, .. } |
+            ScopeType::Space {children, .. } => {
                 for scope in children.iter() {
                     self.check_inference(scope)?;
                 }

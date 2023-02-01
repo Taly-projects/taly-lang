@@ -110,7 +110,7 @@ impl Symbolizer {
         }, Some(scope.clone()), self.trace.clone());
 
         // Check if unique
-        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone()) {
+        if let Some(previous) = scope.get().enter_class(Trace::full(), name.data.clone()) {
             return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
 
@@ -131,12 +131,45 @@ impl Symbolizer {
         Ok(())
     }
 
+    fn symbolize_space_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
+        let Node::SpaceDefinition { name, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let space_scope = Scope::new(node.convert(()), ScopeType::Space { 
+            name: name.clone(), 
+            children: Vec::new(),
+        }, Some(scope.clone()), self.trace.clone());
+
+        // Check if unique
+        if let Some(previous) = scope.get().enter_space(Trace::full(), name.data.clone()) {
+            return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
+        }
+
+        scope.get().add_child(space_scope);
+
+        let space_scope_ref = scope.get().get_last();
+
+        // Symbolize children
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in body {
+            self.symbolize_node(node, space_scope_ref.clone())?;
+            self.trace.index += 1;
+        }
+        self.trace = *self.trace.clone().parent.unwrap();
+
+        // scope.get().add_child(class_scope);
+
+        Ok(())
+    }
+
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
             Node::Use(_) => unreachable!("Should have been separated in the IR Generator!"),
             Node::VariableDefinition { .. } => self.symbolize_variable_definition(node, scope),
             Node::ClassDefinition { .. } => self.symbolize_class_definition(node, scope),
+            Node::SpaceDefinition { .. } => self.symbolize_space_definition(node, scope),
             _ => Ok(())
         }
     }

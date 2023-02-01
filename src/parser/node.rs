@@ -35,6 +35,10 @@ pub enum Node {
     ClassDefinition {
         name: Positioned<String>,
         body: Vec<Positioned<Node>>
+    },
+    SpaceDefinition {
+        name: Positioned<String>,
+        body: Vec<Positioned<Node>>
     }
 }
 
@@ -62,6 +66,7 @@ impl Node {
             }
             Node::Return(_) => format!("Return"),
             Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
+            Node::SpaceDefinition { name, .. } => format!("Space({})", name.data),
         }
     }
 

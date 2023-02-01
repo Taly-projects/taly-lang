@@ -250,6 +250,32 @@ impl IRGenerator {
         }
     }
 
+    fn generate_space_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::SpaceDefinition { name, body, .. } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut new_body = Vec::new();
+        for node in body.iter() {
+            new_body.append(&mut self.generate_space_definition_body(node.clone())?);
+        }
+
+        Ok(vec![node.convert(Node::SpaceDefinition { 
+            name, 
+            body: new_body 
+        })])
+    }
+
+    fn generate_space_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        match node.data {
+            Node::FunctionDefinition { .. } => self.generate_function_definition(node),
+            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            Node::ClassDefinition { .. } => todo!("class inside space"),
+            Node::SpaceDefinition { .. } => todo!("space inside space"),
+            _ => Err(IRError::UnexpectedNode(node, None)),
+        }
+    }
+
     pub fn generate(&mut self) -> Result<IROutput, IRError> {
         let mut output = IROutput {
             includes: Vec::new(),
@@ -260,6 +286,7 @@ impl IRGenerator {
             match current.data {
                 Node::FunctionDefinition { .. } => output.ast.append(&mut self.generate_function_definition(current)?),
                 Node::ClassDefinition { .. } => output.ast.append(&mut self.generate_class_definition(current)?),
+                Node::SpaceDefinition { .. } => output.ast.append(&mut self.generate_space_definition(current)?),
                 Node::Use(path) => {
                     for include in output.includes.iter() {
                         if include.full_path() == format!("{}.h", path.data) {

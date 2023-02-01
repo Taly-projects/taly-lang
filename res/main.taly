@@ -5,6 +5,10 @@ class I32
 
     fn BYE(): c_string => "BYE"
 
+space Math
+
+    fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
+
 extern fn printf(msg: c_string)
 
 fn HELLO(): c_string => "Hello"
