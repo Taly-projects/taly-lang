@@ -251,7 +251,7 @@ impl Parser {
         Ok(Positioned::new(Node::Use(path), start, end))
     }
 
-    fn parse_function_definition(&mut self, start: Position, external: bool) -> Result<Positioned<Node>, ParserError> {
+    fn parse_function_definition(&mut self, start: Position, external: bool, constructor: bool) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let name = self.expect_id()?;
         self.advance();
@@ -310,6 +310,7 @@ impl Parser {
         Ok(Positioned::new(Node::FunctionDefinition { 
             name, 
             external, 
+            constructor,
             parameters, 
             return_type, 
             body 
@@ -418,11 +419,12 @@ impl Parser {
     fn handle_keyword(&mut self, keyword: Positioned<Keyword>) -> Result<Positioned<Node>, ParserError> {
         match keyword.data {
             Keyword::Use => self.parse_use(keyword.start),
-            Keyword::Fn => self.parse_function_definition(keyword.start, false),
+            Keyword::Fn => self.parse_function_definition(keyword.start, false, false),
+            Keyword::New => self.parse_function_definition(keyword.start, false, true),
             Keyword::Extern => {
                 self.advance();
                 _ = self.expect_token(Token::Keyword(Keyword::Fn))?;
-                self.parse_function_definition(keyword.start, true)
+                self.parse_function_definition(keyword.start, true, false)
             },
             Keyword::Var => self.parse_variable_definition(keyword.convert(VarType::Variable)),
             Keyword::Const => self.parse_variable_definition(keyword.convert(VarType::Constant)),

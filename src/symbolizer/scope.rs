@@ -14,7 +14,8 @@ pub enum ScopeType {
         params: Vec<FunctionDefinitionParameter>,
         children: Vec<Scope>,
         return_type: Option<Positioned<String>>,
-        external: bool
+        external: bool,
+        constructor: bool
     },
     Variable {
         var_type: Positioned<VarType>,

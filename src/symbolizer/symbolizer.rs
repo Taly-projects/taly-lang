@@ -29,7 +29,7 @@ impl Symbolizer {
     }
 
     fn symbolize_function_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
-        let Node::FunctionDefinition { name, external, parameters, return_type, body } = node.data.clone() else {
+        let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body } = node.data.clone() else {
             unreachable!()
         };
 
@@ -38,7 +38,8 @@ impl Symbolizer {
             params: parameters.clone(), 
             children: Vec::new(), 
             return_type, 
-            external
+            external,
+            constructor
         }, Some(scope.clone()), self.trace.clone());
 
         // Check if unique
@@ -170,6 +171,7 @@ impl Symbolizer {
             Node::VariableDefinition { .. } => self.symbolize_variable_definition(node, scope),
             Node::ClassDefinition { .. } => self.symbolize_class_definition(node, scope),
             Node::SpaceDefinition { .. } => self.symbolize_space_definition(node, scope),
+            Node::_Unchecked(inner) => self.symbolize_node(*inner, scope),
             _ => Ok(())
         }
     }

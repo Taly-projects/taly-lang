@@ -10,6 +10,7 @@ pub enum Node {
     FunctionDefinition {
         name: Positioned<String>,
         external: bool,
+        constructor: bool,
         parameters: Vec<FunctionDefinitionParameter>,
         return_type: Option<Positioned<String>>,
         body: Vec<Positioned<Node>>
@@ -39,7 +40,9 @@ pub enum Node {
     SpaceDefinition {
         name: Positioned<String>,
         body: Vec<Positioned<Node>>
-    }
+    },
+    // Compiler Specific Annotation
+    _Unchecked(Box<Positioned<Node>>)
 }
 
 impl Node {
@@ -51,8 +54,13 @@ impl Node {
                 ValueNode::Bool(b) => format!("Bool({})", b),
                 ValueNode::Integer(num) => format!("Integer({})", num),
                 ValueNode::Decimal(num) => format!("Decimal({})", num),
+                ValueNode::Type(str) => format!("Type({})", str),
             },
-            Node::FunctionDefinition { name, .. } => format!("Function({})", name.data),
+            Node::FunctionDefinition { name, constructor, .. } => if *constructor {
+                    format!("Constructor({})", name.data)
+                } else {
+                    format!("Function({})", name.data)
+                },
             Node::FunctionCall { name, .. } => format!("FunctionCall({})", name.data),
             Node::Use(path) => format!("Use({})", path.data),
             Node::VariableDefinition { name, .. } => format!("Variable({})", name.data),
@@ -67,6 +75,7 @@ impl Node {
             Node::Return(_) => format!("Return"),
             Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
             Node::SpaceDefinition { name, .. } => format!("Space({})", name.data),
+            Node::_Unchecked(inner) => inner.data.short_name(),
         }
     }
 
@@ -83,7 +92,8 @@ pub enum ValueNode {
     String(String),
     Bool(bool),
     Integer(String),
-    Decimal(String)
+    Decimal(String),
+    Type(String)
 }
 
 

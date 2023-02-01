@@ -87,26 +87,27 @@ impl Checker {
                 data_type: Some(node.convert("F32".to_string())),
                 selected: None
             }),
+            ValueNode::Type(str) => Ok(NodeInfo {
+                checked: node.convert(Node::Value(ValueNode::Type(str))),
+                data_type: None,
+                selected: None // TODO: Select Class (if possible)
+            }),
         }
     }
 
     fn check_function_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        let Node::FunctionDefinition { name, external, parameters, return_type, body } = node.data.clone() else {
+        let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body } = node.data.clone() else {
             unreachable!()
         };
 
-        // println!("a: {:?}, fn: {}", self.scope, name.data);
-        // println!("{:#?}", self.scope.get());
         // Enter Scope
         if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone()) {
-            println!("Enter({}): {:?}, {:?}", name.data, self.scope, function);
             function.get().parent = Some(self.scope.clone()); // FIXME: Somehow fix the problem
             self.scope = function;
         } else {
             unreachable!("Symbol '{}' not found", name.data);
         }
 
-        println!("b");
         // Check Body
         let mut new_body = Vec::new();
         self.trace = Trace::new(0, self.trace.clone());
@@ -118,20 +119,18 @@ impl Checker {
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
 
-        println!("c");
         // Exit Scope
         if let Some(parent) = self.scope.get().parent.clone() {
-            println!("Exit({}): {:?}, {:?}", name.data, self.scope, parent);
             self.scope = parent;
         } else {
             unreachable!("Not parent after entering function!");
         }
-        println!("d");
 
         Ok(NodeInfo {
             checked: node.convert(Node::FunctionDefinition { 
                 name, 
                 external, 
+                constructor,
                 parameters, 
                 return_type, 
                 body: new_body 
@@ -460,6 +459,11 @@ impl Checker {
             Node::Return(_) => self.check_return(node),
             Node::ClassDefinition { .. } => self.check_class_definition(node),
             Node::SpaceDefinition { .. } => self.check_space_definition(node),
+            Node::_Unchecked(inner) => Ok(NodeInfo { 
+                checked: *inner, 
+                data_type: None, 
+                selected: None 
+            })
         }
     }
 

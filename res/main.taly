@@ -3,6 +3,9 @@ use "std-stdio"
 class I32
     var inner: c_int = 0
 
+    new create(value: c_int) =>
+        inner = value
+
     fn BYE(): c_string => "BYE"
 
 space Math

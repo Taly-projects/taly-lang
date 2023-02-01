@@ -45,6 +45,7 @@ impl Generator {
             ValueNode::Bool(b) => (true, format!("{}", b)),
             ValueNode::Integer(num) => (true, format!("{}", num)),
             ValueNode::Decimal(num) => (true, format!("{}", num)),
+            ValueNode::Type(str) => (true, format!("{}", str)),
         }
     }
 
@@ -148,7 +149,7 @@ impl Generator {
     }
 
     fn generate_root_function_definition(&mut self, node: Positioned<Node>) -> File {
-        let Node::FunctionDefinition { name, external, parameters, return_type, body } = node.data.clone() else {
+        let Node::FunctionDefinition { name, external, parameters, return_type, body, .. } = node.data.clone() else {
             unreachable!()
         };
 

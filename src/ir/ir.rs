@@ -1,4 +1,4 @@
-use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType}};
+use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           IR Generator                                         //
@@ -8,6 +8,7 @@ pub struct IRGenerator {
     ast: Vec<Positioned<Node>>,
     index: usize,
     temp_id: usize,
+    extra_includes: Vec<Include>,
 }
 
 impl IRGenerator {
@@ -16,8 +17,19 @@ impl IRGenerator {
         Self {
             ast,
             index: 0,
-            temp_id: 0
+            temp_id: 0,
+            extra_includes: Vec::new()
         }
+    }
+
+    fn add_extra_include(&mut self, include: Include) {
+        for already in self.extra_includes.iter() {
+            if already.full_path() == include.full_path() {
+                return;
+            }
+        }
+
+        self.extra_includes.push(include);
     }
 
     fn advance(&mut self) {
@@ -57,6 +69,7 @@ impl IRGenerator {
             ValueNode::Bool(b) => Ok(vec![node.convert(Node::Value(ValueNode::Bool(b)))]),
             ValueNode::Integer(num) => Ok(vec![node.convert(Node::Value(ValueNode::Integer(num)))]),
             ValueNode::Decimal(num) => Ok(vec![node.convert(Node::Value(ValueNode::Decimal(num)))]),
+            ValueNode::Type(str) => Ok(vec![node.convert(Node::Value(ValueNode::Type(str)))]),
         }
     }
 
@@ -71,10 +84,47 @@ impl IRGenerator {
         })])
     }
 
-    fn generate_function_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
-        let Node::FunctionDefinition { name, external, parameters, return_type, body } = node.data.clone() else {
+    fn generate_function_definition(&mut self, node: Positioned<Node>, parent_type: Option<Positioned<String>>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::FunctionDefinition { name, external, constructor, mut parameters, mut return_type, mut body } = node.data.clone() else {
             unreachable!()
         };
+
+        if let Some(parent_type) = parent_type {
+            if !constructor {
+                let mut new_params = Vec::new();
+                new_params.push(FunctionDefinitionParameter::new(name.convert("self".to_string()), parent_type));
+                new_params.append(&mut parameters);
+                parameters = new_params;
+            } else {
+                return_type = Some(parent_type.clone());
+
+                self.add_extra_include(Include { 
+                    include_type: IncludeType::StdExternal, 
+                    path: node.convert("stdlib.h".to_string()) 
+                });
+
+                let mut new_body = Vec::new();
+                new_body.push(node.convert(Node::_Unchecked(Box::new(node.convert(Node::VariableDefinition { 
+                    var_type: node.convert(VarType::Constant), 
+                    name: node.convert("self".to_string()), 
+                    data_type: Some(parent_type.clone()), 
+                    value: Some(Box::new(node.convert(Node::FunctionCall { 
+                        name: node.convert("malloc".to_string()), 
+                        parameters: vec![
+                            node.convert(Node::FunctionCall { 
+                                name: node.convert("sizeof".to_string()), 
+                                parameters: vec![
+                                    node.convert(Node::Value(ValueNode::Type(parent_type.data.clone())))
+                                ] 
+                            })
+                        ] 
+                    }))) 
+                })))));
+                new_body.append(&mut body);
+                new_body.push(node.convert(Node::Return(Some(Box::new(node.convert(Node::VariableCall("self".to_string())))))));
+                body = new_body;
+            }
+        }
 
         let mut new_body = Vec::new();
         for child in body.iter() {
@@ -101,6 +151,7 @@ impl IRGenerator {
         Ok(vec![node.convert(Node::FunctionDefinition { 
             name: name.clone(), 
             external: external.clone(), 
+            constructor: constructor.clone(),
             parameters: parameters.clone(), 
             return_type: return_type.clone(), 
             body: new_body 
@@ -115,6 +166,7 @@ impl IRGenerator {
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operator(node),
             Node::Return(_) => self.generate_return(node),
+            Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
@@ -233,7 +285,7 @@ impl IRGenerator {
 
         let mut new_body = Vec::new();
         for node in body.iter() {
-            new_body.append(&mut self.generate_class_definition_body(node.clone())?);
+            new_body.append(&mut self.generate_class_definition_body(node.clone(), name.clone())?);
         }
 
         Ok(vec![node.convert(Node::ClassDefinition { 
@@ -242,10 +294,11 @@ impl IRGenerator {
         })])
     }
 
-    fn generate_class_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+    fn generate_class_definition_body(&mut self, node: Positioned<Node>, parent_type: Positioned<String>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
-            Node::FunctionDefinition { .. } => self.generate_function_definition(node),
+            Node::FunctionDefinition { .. } => self.generate_function_definition(node, Some(parent_type)),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
@@ -268,10 +321,10 @@ impl IRGenerator {
 
     fn generate_space_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
-            Node::FunctionDefinition { .. } => self.generate_function_definition(node),
-            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            Node::FunctionDefinition { constructor, .. } if !constructor => self.generate_function_definition(node, None),
             Node::ClassDefinition { .. } => todo!("class inside space"),
             Node::SpaceDefinition { .. } => todo!("space inside space"),
+            Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
@@ -284,9 +337,10 @@ impl IRGenerator {
 
         while let Some(current) = self.current() {
             match current.data {
-                Node::FunctionDefinition { .. } => output.ast.append(&mut self.generate_function_definition(current)?),
+                Node::FunctionDefinition { constructor, .. } if !constructor => output.ast.append(&mut self.generate_function_definition(current, None)?),
                 Node::ClassDefinition { .. } => output.ast.append(&mut self.generate_class_definition(current)?),
                 Node::SpaceDefinition { .. } => output.ast.append(&mut self.generate_space_definition(current)?),
+                Node::_Unchecked(_) => output.ast.push(current),
                 Node::Use(path) => {
                     for include in output.includes.iter() {
                         if include.full_path() == format!("{}.h", path.data) {
@@ -300,6 +354,17 @@ impl IRGenerator {
             }
             self.advance();
         } 
+
+        // Add Extra includes
+        'A: for include in self.extra_includes.iter() {
+            for already in output.includes.iter() {
+                if already.full_path() == include.full_path() {
+                    continue 'A;
+                }
+            }
+
+            output.includes.push(include.clone());
+        }
     
         Ok(output)
     }

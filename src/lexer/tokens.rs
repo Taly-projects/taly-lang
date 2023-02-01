@@ -41,7 +41,8 @@ pub enum Keyword {
     Const,
     Return,
     Class,
-    Space
+    Space,
+    New
 }
 
 impl Keyword {
@@ -56,6 +57,7 @@ impl Keyword {
             "return" => Some(Keyword::Return),
             "class" => Some(Keyword::Class),
             "space" => Some(Keyword::Space),
+            "new" => Some(Keyword::New),
             _ => None
         }
     }
