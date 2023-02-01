@@ -358,7 +358,33 @@ impl Checker {
         }
     }
 
+    fn check_inference(&mut self, scope: &Scope) -> Result<(), CheckerError> {
+        match &scope.scope {
+            ScopeType::Root { children } => {
+                for scope in children.iter() {
+                    self.check_inference(scope)?;
+                }
+            },
+            ScopeType::Function { children, .. } => {
+                for scope in children.iter() {
+                    self.check_inference(scope)?;
+                }
+            },
+            ScopeType::Variable { name, data_type, initialized, .. } => {
+                if !initialized { 
+                    return Err(CheckerError::VariableNotInitialized(scope.pos.convert(name.data.clone())))
+                } if data_type.is_none() {
+                    return Err(CheckerError::CannotInferType(scope.pos.convert(name.data.clone())));
+                } 
+            },
+        }
+
+        Ok(())
+    }
+
     pub fn check(&mut self) -> Result<IROutput, CheckerError> {
+        let root_scope = self.scope.clone(); // Saving root scope for later
+
         let mut output = IROutput { includes: self.ir_output.includes.clone() , ast: Vec::new() };
 
         while let Some(node) = self.current() {
@@ -367,8 +393,9 @@ impl Checker {
             self.trace.index += 1;
         }
 
-        // TODO: Check if all types have been inferred (for variables)
-        
+        // Check if all variables have been initialized and types inferred
+        self.check_inference(root_scope.get())?;
+
         // Check if types have been inferred (and set the type to the node)
         for (mut trace, data_type) in self.inferred.clone() {
             let mut trace_back = Vec::new();
