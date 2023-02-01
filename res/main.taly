@@ -8,7 +8,7 @@ class I32
 
     fn BYE(): c_string => "BYE"
 
-space Math
+space I32
 
     fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
 
@@ -19,8 +19,7 @@ fn HELLO(): c_string => "Hello"
 fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
 
 fn main() =>
-    var y: c_int = 3
-    var z: c_int = 4
-    z = y = z
+    var z: I32 = I32.create(0)
+    z.BYE()
     const x: c_string = HELLO()
     printf(x)

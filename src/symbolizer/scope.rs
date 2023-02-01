@@ -25,11 +25,13 @@ pub enum ScopeType {
     },
     Class {
         name: Positioned<String>,
-        children: Vec<Scope>
+        children: Vec<Scope>,
+        linked_space: bool
     },
     Space {
         name: Positioned<String>,
-        children: Vec<Scope>
+        children: Vec<Scope>,
+        linked_class: bool
     }
 }
 
@@ -91,13 +93,11 @@ impl Scope {
         }
     }
 
-    pub fn enter_function(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
-        println!("{:#?}", self);
-        println!("u");
+    pub fn enter_function(&mut self, trace: Trace, name: String, look_links: bool) -> Option<MutRef<Scope>> {
+        let mut check_space = None;
+        let mut check_class = None;
         match &mut self.scope {
-            ScopeType::Root { children } |
-            ScopeType::Class {children, ..} |
-            ScopeType::Space { children, .. } => {
+            ScopeType::Root { children } => {
                 for child in children.iter_mut() {
                     if let ScopeType::Function { name: c_name, .. } = &child.scope {
                         if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
@@ -105,19 +105,62 @@ impl Scope {
                         }
                     }
                 }
-                None
+            }
+            ScopeType::Class {name: class_name, children, linked_space, ..}  => {
+                for child in children.iter_mut() {
+                    if let ScopeType::Function { name: c_name, .. } = &child.scope {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
+                            return Some(MutRef::new(child));
+                        }
+                    }
+                }
+
+                if *linked_space && look_links{
+                    check_space = Some(class_name.clone());
+                }
+            }
+            ScopeType::Space { name: space_name, children, linked_class, .. } => {
+                for child in children.iter_mut() {
+                    if let ScopeType::Function { name: c_name, .. } = &child.scope {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
+                            return Some(MutRef::new(child));
+                        }
+                    }
+                }
+
+                if *linked_class && look_links {
+                    check_class = Some(space_name.clone());
+                }
             },
-            ScopeType::Function { .. } => None,
-            ScopeType::Variable { .. } => None,
+            ScopeType::Variable { data_type, .. } => {
+                if let Some(data_type) = data_type {
+                    check_class = Some(data_type.clone());
+                }
+            }
+            _ => {}
+        }
+
+        if let Some(space) = check_space {
+            println!("Space found!");
+            self.get_space(Trace::full(), space.data.clone()).unwrap().get().enter_function(trace, name, false)
+        } else if let Some(class) = check_class {
+            println!("Class found!");
+            self.get_class(Trace::full(), class.data.clone()).unwrap().get().enter_function(trace, name, false)
+        } else {
+            None
         }
     }
 
     pub fn get_function(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
-        if let Some(fun) = self.enter_function(trace.clone(), name.clone()) {
+        if let Some(fun) = self.enter_function(trace.clone(), name.clone(), true) {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
-            return parent.get().get_function(*trace.parent.unwrap(), name);
+            if trace.full {
+                return parent.get().get_function(trace, name);
+            } else {
+                return parent.get().get_function(*trace.parent.unwrap(), name);
+            }
         }
         None
     }
@@ -146,7 +189,11 @@ impl Scope {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
-            return parent.get().get_variable(*trace.parent.unwrap(), name);
+            if trace.full {
+                return parent.get().get_variable(trace, name);
+            } else {
+                return parent.get().get_variable(*trace.parent.unwrap(), name);
+            }
         }
         None
     }
@@ -175,7 +222,11 @@ impl Scope {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
-            return parent.get().get_class(*trace.parent.unwrap(), name);
+            if trace.full {
+                return parent.get().get_class(trace, name);
+            } else {
+                return parent.get().get_class(*trace.parent.unwrap(), name);
+            }
         }
         None
     }
@@ -204,7 +255,11 @@ impl Scope {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
-            return parent.get().get_space(*trace.parent.unwrap(), name);
+            if trace.full {
+                return parent.get().get_space(trace, name);
+            } else {
+                return parent.get().get_space(*trace.parent.unwrap(), name);
+            }
         }
         None
     }

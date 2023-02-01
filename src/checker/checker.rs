@@ -21,7 +21,8 @@ pub struct Checker {
     scope: MutRef<Scope>,
     index: usize,
     trace: Trace,
-    pub inferred: Vec<(Trace, Positioned<String>)>
+    pub inferred: Vec<(Trace, Positioned<String>)>,
+    pub selected: bool
 }
 
 impl Checker {
@@ -32,7 +33,8 @@ impl Checker {
             scope,
             index: 0,
             trace: Trace::default(),
-            inferred: Vec::new()
+            inferred: Vec::new(),
+            selected: false
         }
     }
 
@@ -115,7 +117,7 @@ impl Checker {
         };
 
         // Enter Scope
-        if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone()) {
+        if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true) {
             function.get().parent = Some(self.scope.clone()); // FIXME: Somehow fix the problem
             self.scope = function;
         } else {
@@ -160,8 +162,18 @@ impl Checker {
         };
 
         // Find scope-symbol
-        let Some(function) = self.scope.get().get_function(self.trace.clone(), name.data.clone()) else {
-            return Err(CheckerError::SymbolNotFound(name));
+        let function = if self.selected {
+            if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true) {
+                function
+            } else {
+                return Err(CheckerError::SymbolNotFound(name));
+            }
+        } else {
+            if let Some(function) = self.scope.get().get_function(self.trace.clone(), name.data.clone()) {
+                function
+            } else {
+                return Err(CheckerError::SymbolNotFound(name));
+            }
         };
 
         let ScopeType::Function { params: def_params, return_type: def_return_type, .. } = &function.get().scope else {
@@ -242,24 +254,35 @@ impl Checker {
             unreachable!()
         };
 
-        // Find scope-symbol
-        let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.clone()) else {
+        if let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.clone()) {
+            let ScopeType::Variable { var_type: def_var_type, name: def_name, data_type: def_data_type, initialized: def_initialized } = &variable.get().scope else {
+                unreachable!()
+            };
+    
+            if def_var_type.data == VarType::Constant && !def_initialized {
+                return Err(CheckerError::VariableNotInitialized(def_name.clone()));
+            }
+    
+            Ok(NodeInfo {
+                checked: node.convert(Node::VariableCall(name.clone())),
+                data_type: def_data_type.clone(),
+                selected: Some(variable)
+            })
+        } else if let Some(class) = self.scope.get().get_class(self.trace.clone(), name.clone()) {
+            Ok(NodeInfo {
+                checked: node.convert(Node::VariableCall(name.clone())),
+                data_type: None,
+                selected: Some(class)
+            })
+        } else if let Some(space) = self.scope.get().get_space(self.trace.clone(), name.clone()) {
+            Ok(NodeInfo {
+                checked: node.convert(Node::VariableCall(name.clone())),
+                data_type: None,
+                selected: Some(space)
+            })
+        } else {
             return Err(CheckerError::SymbolNotFound(node.convert(name)));
-        };
-
-        let ScopeType::Variable { var_type: def_var_type, name: def_name, data_type: def_data_type, initialized: def_initialized } = &variable.get().scope else {
-            unreachable!()
-        };
-
-        if def_var_type.data == VarType::Constant && !def_initialized {
-            return Err(CheckerError::VariableNotInitialized(def_name.clone()));
         }
-
-        Ok(NodeInfo {
-            checked: node.convert(Node::VariableCall(name.clone())),
-            data_type: def_data_type.clone(),
-            selected: Some(variable)
-        })
     }
 
     fn check_binary_operation(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
@@ -343,11 +366,17 @@ impl Checker {
                 let checked_lhs = self.check_node(*lhs.clone())?;
                 if let Some(selected) = checked_lhs.selected {
                     let prev_scope = self.scope.clone();
+                    let prev_trace = self.trace.clone();
+                    let prev_selected = self.selected;
                     self.scope = selected;
+                    self.trace = Trace::full();
+                    self.selected = true;
 
                     let checked_rhs = self.check_node(*rhs.clone())?;
 
                     self.scope = prev_scope;
+                    self.trace = prev_trace;
+                    self.selected = prev_selected;
 
                     return Ok(NodeInfo {
                         checked: node.convert(Node::BinaryOperation { 

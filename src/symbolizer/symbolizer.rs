@@ -43,7 +43,7 @@ impl Symbolizer {
         }, Some(scope.clone()), self.trace.clone());
 
         // Check if unique
-        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone()) {
+        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone(), true) {
             return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
         
@@ -105,9 +105,21 @@ impl Symbolizer {
             unreachable!()
         };
 
+        let linked_space = if let Some(class) = scope.get().enter_space(Trace::full(), name.data.clone()) {
+            let ScopeType::Space { linked_class, .. } = &mut class.get().scope else {
+                unreachable!()
+            };
+
+            *linked_class = true;
+            true
+        } else {
+            false
+        };
+
         let class_scope = Scope::new(node.convert(()), ScopeType::Class { 
             name: name.clone(), 
             children: Vec::new(),
+            linked_space
         }, Some(scope.clone()), self.trace.clone());
 
         // Check if unique
@@ -137,9 +149,21 @@ impl Symbolizer {
             unreachable!()
         };
 
+        let linked_class = if let Some(space) = scope.get().enter_class(Trace::full(), name.data.clone()) {
+            let ScopeType::Class { linked_space, .. } = &mut space.get().scope else {
+                unreachable!()
+            };
+
+            *linked_space = true;
+            true
+        } else {
+            false
+        };
+
         let space_scope = Scope::new(node.convert(()), ScopeType::Space { 
             name: name.clone(), 
             children: Vec::new(),
+            linked_class
         }, Some(scope.clone()), self.trace.clone());
 
         // Check if unique
