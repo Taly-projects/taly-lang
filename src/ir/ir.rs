@@ -18,7 +18,7 @@ impl IRGenerator {
             ast,
             index: 0,
             temp_id: 0,
-            extra_includes: Vec::new()
+            extra_includes: Vec::new(),
         }
     }
 
@@ -164,7 +164,7 @@ impl IRGenerator {
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
-            Node::BinaryOperation { .. } => self.generate_binary_operator(node),
+            Node::BinaryOperation { .. } => self.generate_binary_operator(node, false),
             Node::Return(_) => self.generate_return(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
@@ -201,7 +201,7 @@ impl IRGenerator {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
-            Node::BinaryOperation { .. } => self.generate_binary_operator(node),
+            Node::BinaryOperation { .. } => self.generate_binary_operator(node, true),
             _ => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
         }
     }
@@ -214,7 +214,7 @@ impl IRGenerator {
         Ok(vec![node.convert(Node::VariableCall(name))])
     }
 
-    fn generate_binary_operator(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+    fn generate_binary_operator(&mut self, node: Positioned<Node>, used: bool) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::BinaryOperation { lhs, operator, rhs } = node.data.clone() else {
             unreachable!()
         };
@@ -229,7 +229,7 @@ impl IRGenerator {
         let rhs_last = rhs_gen.pop().unwrap();
         pre.append(&mut rhs_gen);
 
-        if operator.data == Operator::Assign {
+        if operator.data == Operator::Assign && used {
             let id = format!("_temp{}", self.temp_id);
             pre.push(node.convert(Node::VariableDefinition { 
                 var_type: node.convert(VarType::Constant), 
