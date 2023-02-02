@@ -1,4 +1,4 @@
-use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType}, checker::error::CheckerError};
+use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType, AccessModifier}, checker::error::CheckerError};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Node Info                                           //
@@ -112,7 +112,7 @@ impl Checker {
     }
 
     fn check_function_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body } = node.data.clone() else {
+        let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -149,7 +149,8 @@ impl Checker {
                 constructor,
                 parameters, 
                 return_type, 
-                body: new_body 
+                body: new_body,
+                access
             }),
             data_type: None,
             selected: None
@@ -211,7 +212,7 @@ impl Checker {
     }
 
     fn check_variable_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        let Node::VariableDefinition { var_type, name, value, .. } = node.data.clone() else {
+        let Node::VariableDefinition { var_type, name, value, access, .. } = node.data.clone() else {
             unreachable!()
         };
 
@@ -243,7 +244,8 @@ impl Checker {
                 var_type, 
                 name, 
                 data_type: def_data_type.clone(), 
-                value: value_checked
+                value: value_checked,
+                access
             }), data_type: None,
             selected: None
         })
@@ -282,6 +284,26 @@ impl Checker {
             })
         } else {
             return Err(CheckerError::SymbolNotFound(node.convert(name)));
+        }
+    }
+
+    fn check_access(&mut self, selected: &MutRef<Scope>) -> Result<(), CheckerError> {
+        let selected = selected.get();
+        
+        if self.trace.follows_path(&selected.trace) {
+            Ok(())
+        } else if let Some(access) = &selected.access {
+            println!("\n\n{:?}\n{:?}\n\n", selected.trace, self.trace);
+            match &access.data {
+                AccessModifier::Public => Ok(()),
+                AccessModifier::Private => todo!("error not accessible"),
+                AccessModifier::Protected => todo!("error not accessible"),
+                AccessModifier::Locked => unimplemented!(),
+                AccessModifier::Guarded => unimplemented!(),
+            }
+        } else {
+            println!("\n\n{:?}\n{:?}\n\n", selected.trace, self.trace);
+            todo!("error not accessible (no access {:#?})", selected.scope)
         }
     }
 
@@ -374,10 +396,15 @@ impl Checker {
 
                     let checked_rhs = self.check_node(*rhs.clone())?;
 
+                    
                     self.scope = prev_scope;
                     self.trace = prev_trace;
                     self.selected = prev_selected;
-
+                    
+                    if let Some(selected_rhs) = &checked_rhs.selected {
+                        self.check_access(selected_rhs)?;
+                    }
+                    
                     return Ok(NodeInfo {
                         checked: node.convert(Node::BinaryOperation { 
                             lhs: Box::new(checked_lhs.checked), 
@@ -437,7 +464,7 @@ impl Checker {
     }
 
     fn check_class_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        let Node::ClassDefinition { name, body } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -469,7 +496,8 @@ impl Checker {
         Ok(NodeInfo {
             checked: node.convert(Node::ClassDefinition { 
                 name, 
-                body: new_body 
+                body: new_body,
+                access
             }),
             data_type: None,
             selected: None
@@ -477,7 +505,7 @@ impl Checker {
     }
 
     fn check_space_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        let Node::SpaceDefinition { name, body } = node.data.clone() else {
+        let Node::SpaceDefinition { name, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -509,7 +537,8 @@ impl Checker {
         Ok(NodeInfo {
             checked: node.convert(Node::SpaceDefinition { 
                 name, 
-                body: new_body 
+                body: new_body,
+                access
             }),
             data_type: None,
             selected: None

@@ -1,4 +1,4 @@
-use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter}};
+use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           IR Generator                                         //
@@ -85,7 +85,7 @@ impl IRGenerator {
     }
 
     fn generate_function_definition(&mut self, node: Positioned<Node>, parent_type: Option<Positioned<String>>) -> Result<Vec<Positioned<Node>>, IRError> {
-        let Node::FunctionDefinition { name, external, constructor, mut parameters, mut return_type, mut body } = node.data.clone() else {
+        let Node::FunctionDefinition { name, external, constructor, mut parameters, mut return_type, mut body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -118,7 +118,8 @@ impl IRGenerator {
                                 ] 
                             })
                         ] 
-                    }))) 
+                    }))),
+                    access: None 
                 })))));
                 new_body.append(&mut body);
                 new_body.push(node.convert(Node::Return(Some(Box::new(node.convert(Node::VariableCall("self".to_string())))))));
@@ -154,15 +155,22 @@ impl IRGenerator {
             constructor: constructor.clone(),
             parameters: parameters.clone(), 
             return_type: return_type.clone(), 
-            body: new_body 
+            body: new_body,
+            access
         })])
     }
 
     fn generate_function_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
-        match node.data {
+        match node.data.clone() {
             Node::Value(_) => self.generate_value(node),
             Node::FunctionCall { .. } => self.generate_function_call(node),
-            Node::VariableDefinition { .. } => self.generate_variable_definition(node),
+            Node::VariableDefinition { access, .. } => {
+                if access.is_some() {
+                    todo!("Error cannot specify access!")
+                } else {
+                    self.generate_variable_definition(node)
+                }
+            }
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operator(node, false),
             Node::Return(_) => self.generate_return(node),
@@ -172,7 +180,7 @@ impl IRGenerator {
     }
 
     fn generate_variable_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
-        let Node::VariableDefinition { var_type, name, data_type, value } = node.data.clone() else {
+        let Node::VariableDefinition { var_type, name, data_type, value, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -190,7 +198,8 @@ impl IRGenerator {
             var_type, 
             name, 
             data_type, 
-            value: value_checked 
+            value: value_checked,
+            access
         }));
 
         Ok(pre)
@@ -235,7 +244,8 @@ impl IRGenerator {
                 var_type: node.convert(VarType::Constant), 
                 name: node.convert(id.clone()), 
                 data_type: None, 
-                value: Some(Box::new(lhs_last.clone())) 
+                value: Some(Box::new(lhs_last.clone())),
+                access: None
             }));
             self.temp_id += 1;
 
@@ -279,7 +289,7 @@ impl IRGenerator {
     }
 
     fn generate_class_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
-        let Node::ClassDefinition { name, body, .. } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -292,7 +302,7 @@ impl IRGenerator {
                         todo!("err destructor already defined!");
                     } 
                     has_destructor = true;
-                    
+
                     // Check destructor
                     if return_type.is_some() {
                         todo!("err destructor shouldn't return anything");
@@ -321,13 +331,15 @@ impl IRGenerator {
                             name.convert(Node::VariableCall("self".to_string()))
                         ] 
                     }))))
-                ] 
+                ],
+                access: Some(node.convert(AccessModifier::Public)) 
             }), name.clone())?);
         }
 
         Ok(vec![node.convert(Node::ClassDefinition { 
             name, 
-            body: new_body 
+            body: new_body,
+            access
         })])
     }
 
@@ -341,7 +353,7 @@ impl IRGenerator {
     }
 
     fn generate_space_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
-        let Node::SpaceDefinition { name, body, .. } = node.data.clone() else {
+        let Node::SpaceDefinition { name, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -352,7 +364,8 @@ impl IRGenerator {
 
         Ok(vec![node.convert(Node::SpaceDefinition { 
             name, 
-            body: new_body 
+            body: new_body,
+            access
         })])
     }
 

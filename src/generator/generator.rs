@@ -205,7 +205,7 @@ impl Generator {
     }
 
     fn generate_class_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
-        let Node::ClassDefinition { name, body } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, .. } = node.data.clone() else {
             unreachable!()
         };
 
@@ -256,7 +256,7 @@ impl Generator {
 
 
     fn generate_space_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
-        let Node::SpaceDefinition { name, body } = node.data.clone() else {
+        let Node::SpaceDefinition { name, body, .. } = node.data.clone() else {
             unreachable!()
         };
 

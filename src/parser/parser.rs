@@ -1,4 +1,4 @@
-use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator}}};
+use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator, AccessModifier}}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Parser                                             //
@@ -275,7 +275,7 @@ impl Parser {
         Ok(Positioned::new(Node::Use(path), start, end))
     }
 
-    fn parse_function_definition(&mut self, start: Position, external: bool, constructor: bool) -> Result<Positioned<Node>, ParserError> {
+    fn parse_function_definition(&mut self, start: Position, external: bool, constructor: bool, access: Option<Positioned<AccessModifier>>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let name = self.expect_id()?;
         self.advance();
@@ -337,13 +337,13 @@ impl Parser {
             constructor,
             parameters, 
             return_type, 
-            body 
+            body,
+            access 
         }, start, end))
     } 
 
-    fn parse_variable_definition(&mut self, var_type: Positioned<VarType>) -> Result<Positioned<Node>, ParserError> {
+    fn parse_variable_definition(&mut self, start: Position, var_type: Positioned<VarType>, access: Option<Positioned<AccessModifier>>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
-        let start = var_type.start.clone();
 
         // Name
         let name = self.expect_id()?;
@@ -381,7 +381,8 @@ impl Parser {
             var_type, 
             name, 
             data_type, 
-            value 
+            value,
+            access
         }, start, end))
     }
 
@@ -400,7 +401,7 @@ impl Parser {
         }
     }
 
-    fn parse_class_definition(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
+    fn parse_class_definition(&mut self, start: Position, access: Option<Positioned<AccessModifier>>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let name = self.expect_id()?;
         self.advance();
@@ -416,11 +417,12 @@ impl Parser {
 
         Ok(Positioned::new(Node::ClassDefinition { 
             name, 
-            body 
+            body,
+            access
         }, start, end))
     }
 
-    fn parse_space_definition(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
+    fn parse_space_definition(&mut self, start: Position, access: Option<Positioned<AccessModifier>>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let name = self.expect_id()?;
         self.advance();
@@ -436,25 +438,45 @@ impl Parser {
 
         Ok(Positioned::new(Node::SpaceDefinition { 
             name, 
-            body 
+            body,
+            access
         }, start, end))
+    }
+
+    fn handle_access(&mut self, access: Positioned<AccessModifier>) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let current = self.expect_current(Some("Function, Class, Space, ..".to_string()))?;
+        match current.data {
+            Token::Keyword(Keyword::Fn) => self.parse_function_definition(access.start.clone(), false, false, Some(access)),
+            Token::Keyword(Keyword::New) => self.parse_function_definition(access.start.clone(), false, true, Some(access)),
+            Token::Keyword(Keyword::Var) => self.parse_variable_definition(access.start.clone(), current.convert(VarType::Variable), Some(access)),
+            Token::Keyword(Keyword::Const) => self.parse_variable_definition(access.start.clone(), current.convert(VarType::Constant), Some(access)),
+            Token::Keyword(Keyword::Class) => self.parse_class_definition(access.start.clone(), Some(access)),
+            Token::Keyword(Keyword::Space) => self.parse_space_definition(access.start.clone(), Some(access)),
+            _ => Err(ParserError::UnexpectedToken(current, Some("Function, Class, Space, ..".to_string())))
+        }
     }
 
     fn handle_keyword(&mut self, keyword: Positioned<Keyword>) -> Result<Positioned<Node>, ParserError> {
         match keyword.data {
             Keyword::Use => self.parse_use(keyword.start),
-            Keyword::Fn => self.parse_function_definition(keyword.start, false, false),
-            Keyword::New => self.parse_function_definition(keyword.start, false, true),
+            Keyword::Fn => self.parse_function_definition(keyword.start, false, false, None),
+            Keyword::New => self.parse_function_definition(keyword.start, false, true, None),
             Keyword::Extern => {
                 self.advance();
                 _ = self.expect_token(Token::Keyword(Keyword::Fn))?;
-                self.parse_function_definition(keyword.start, true, false)
+                self.parse_function_definition(keyword.start, true, false, None)
             },
-            Keyword::Var => self.parse_variable_definition(keyword.convert(VarType::Variable)),
-            Keyword::Const => self.parse_variable_definition(keyword.convert(VarType::Constant)),
+            Keyword::Var => self.parse_variable_definition(keyword.start.clone(), keyword.convert(VarType::Variable), None),
+            Keyword::Const => self.parse_variable_definition(keyword.start.clone(), keyword.convert(VarType::Constant), None),
             Keyword::Return => self.parse_return(keyword.convert(())),
-            Keyword::Class => self.parse_class_definition(keyword.start),
-            Keyword::Space => self.parse_space_definition(keyword.start)
+            Keyword::Class => self.parse_class_definition(keyword.start, None),
+            Keyword::Space => self.parse_space_definition(keyword.start, None),
+            Keyword::Pub => self.handle_access(keyword.convert(AccessModifier::Public)),
+            Keyword::Prot => self.handle_access(keyword.convert(AccessModifier::Protected)),
+            Keyword::Lock => self.handle_access(keyword.convert(AccessModifier::Locked)),
+            Keyword::Guard => self.handle_access(keyword.convert(AccessModifier::Guarded)),
+            
         }
     }
 

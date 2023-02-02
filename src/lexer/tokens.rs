@@ -43,7 +43,11 @@ pub enum Keyword {
     Return,
     Class,
     Space,
-    New
+    New,
+    Pub,
+    Prot,
+    Lock,
+    Guard
 }
 
 impl Keyword {
@@ -59,6 +63,10 @@ impl Keyword {
             "class" => Some(Keyword::Class),
             "space" => Some(Keyword::Space),
             "new" => Some(Keyword::New),
+            "pub" => Some(Keyword::Pub),
+            "prot" => Some(Keyword::Prot),
+            "lock" => Some(Keyword::Lock),
+            "guard" => Some(Keyword::Guard),
             _ => None
         }
     }

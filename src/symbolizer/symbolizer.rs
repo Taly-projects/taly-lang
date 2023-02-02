@@ -29,7 +29,7 @@ impl Symbolizer {
     }
 
     fn symbolize_function_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
-        let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body } = node.data.clone() else {
+        let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -40,7 +40,7 @@ impl Symbolizer {
             return_type, 
             external,
             constructor
-        }, Some(scope.clone()), self.trace.clone());
+        }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique
         if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone(), true) {
@@ -57,10 +57,10 @@ impl Symbolizer {
                 name: param.name.clone(), 
                 data_type: Some(param.data_type.clone()), 
                 initialized: true 
-            }, Some(function_scope_ref.clone()), Trace::default());
+            }, Some(function_scope_ref.clone()), Trace::default(), None);
 
             // Check if unique
-            if let Some(previous) = scope.get().enter_variable(Trace::full(), param.name.data.clone()) {
+            if let Some(previous) = scope.get().enter_variable(Trace::full(), param.name.data.clone(), true) {
                 return Err(SymbolizerError::SymbolAlreadyDefined(param.name, previous.get().pos.clone()));
             }
 
@@ -79,7 +79,7 @@ impl Symbolizer {
     }
 
     fn symbolize_variable_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
-        let Node::VariableDefinition { var_type, name, data_type, value } = node.data.clone() else {
+        let Node::VariableDefinition { var_type, name, data_type, value, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -88,10 +88,10 @@ impl Symbolizer {
             name: name.clone(), 
             data_type: data_type.clone(), 
             initialized: value.is_some() 
-        }, Some(scope.clone()), self.trace.clone());
+        }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique
-        if let Some(previous) = scope.get().enter_variable(Trace::full(), name.data.clone()) {
+        if let Some(previous) = scope.get().enter_variable(Trace::full(), name.data.clone(), true) {
             return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
 
@@ -101,7 +101,7 @@ impl Symbolizer {
     }
 
     fn symbolize_class_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
-        let Node::ClassDefinition { name, body } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -120,7 +120,7 @@ impl Symbolizer {
             name: name.clone(), 
             children: Vec::new(),
             linked_space
-        }, Some(scope.clone()), self.trace.clone());
+        }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique
         if let Some(previous) = scope.get().enter_class(Trace::full(), name.data.clone()) {
@@ -145,7 +145,7 @@ impl Symbolizer {
     }
 
     fn symbolize_space_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
-        let Node::SpaceDefinition { name, body } = node.data.clone() else {
+        let Node::SpaceDefinition { name, body, access } = node.data.clone() else {
             unreachable!()
         };
 
@@ -164,7 +164,7 @@ impl Symbolizer {
             name: name.clone(), 
             children: Vec::new(),
             linked_class
-        }, Some(scope.clone()), self.trace.clone());
+        }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique
         if let Some(previous) = scope.get().enter_space(Trace::full(), name.data.clone()) {

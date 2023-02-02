@@ -1,12 +1,12 @@
 use "std-stdio"
 
-class I32
+pub class I32
     var inner: c_int = 0
 
-    new create(value: c_int) =>
+    pub new create(value: c_int) =>
         self.inner = value
 
-    fn BYE(): c_string => "BYE"
+    pub fn BYE(): c_string => "BYE"
 
 space I32
 

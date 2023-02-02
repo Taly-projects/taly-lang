@@ -13,7 +13,8 @@ pub enum Node {
         constructor: bool,
         parameters: Vec<FunctionDefinitionParameter>,
         return_type: Option<Positioned<String>>,
-        body: Vec<Positioned<Node>>
+        body: Vec<Positioned<Node>>,
+        access: Option<Positioned<AccessModifier>>
     },
     FunctionCall {
         name: Positioned<String>,
@@ -24,7 +25,8 @@ pub enum Node {
         var_type: Positioned<VarType>,
         name: Positioned<String>,
         data_type: Option<Positioned<String>>,
-        value: Option<Box<Positioned<Node>>>
+        value: Option<Box<Positioned<Node>>>,
+        access: Option<Positioned<AccessModifier>>
     },
     VariableCall(String),
     BinaryOperation {
@@ -35,11 +37,13 @@ pub enum Node {
     Return(Option<Box<Positioned<Node>>>),
     ClassDefinition {
         name: Positioned<String>,
-        body: Vec<Positioned<Node>>
+        body: Vec<Positioned<Node>>,
+        access: Option<Positioned<AccessModifier>>
     },
     SpaceDefinition {
         name: Positioned<String>,
-        body: Vec<Positioned<Node>>
+        body: Vec<Positioned<Node>>,
+        access: Option<Positioned<AccessModifier>>
     },
     // Compiler Specific Annotation
     _Unchecked(Box<Positioned<Node>>)
@@ -150,4 +154,19 @@ pub enum Operator {
     Divide,
     Assign,
     Access
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                         Access Modifier                                        //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AccessModifier {
+    Public,
+    Private,
+    Protected,
+    Locked,
+    Guarded
 }
