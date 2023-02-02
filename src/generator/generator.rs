@@ -31,6 +31,7 @@ impl Generator {
             "c_string" => "const char*".to_string(),
             "c_int" => "int".to_string(),
             "c_float" => "float".to_string(),
+            "void" => "void".to_string(),
             _ => format!("{}*", data_type)
         }
     }
