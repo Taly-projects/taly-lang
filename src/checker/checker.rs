@@ -185,7 +185,14 @@ impl Checker {
         let parameters_len = parameters.len();
         let mut index = 0;
         let mut checked_parameters = Vec::new();
-        for param in parameters {
+        for mut param in parameters {
+            if let Node::_Optional(inner) = param.data {
+                if parameters_len > def_params.len() {
+                    continue;
+                } else {
+                    param = *inner;
+                }
+            }
             let checked_param = self.check_node(param.clone())?;
 
             if let Some(def_param) = def_params.get(index) {
@@ -404,7 +411,7 @@ impl Checker {
                     if let Some(selected_rhs) = &checked_rhs.selected {
                         self.check_access(selected_rhs)?;
                     }
-                    
+
                     return Ok(NodeInfo {
                         checked: node.convert(Node::BinaryOperation { 
                             lhs: Box::new(checked_lhs.checked), 
@@ -561,7 +568,8 @@ impl Checker {
                 checked: *inner, 
                 data_type: None, 
                 selected: None 
-            })
+            }),
+            Node::_Optional(_) => unreachable!("Unexpected _Optional")
         }
     }
 

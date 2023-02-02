@@ -20,6 +20,6 @@ fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
 
 fn main() =>
     var z: I32 = I32.create(0)
-    z.BYE(z)
+    z.BYE()
     const x: c_string = HELLO()
     printf(x)

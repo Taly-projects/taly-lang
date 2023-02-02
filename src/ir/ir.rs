@@ -235,7 +235,7 @@ impl IRGenerator {
         
         let lhs_last = lhs_gen.pop().unwrap();
         pre.append(&mut lhs_gen);
-        let rhs_last = rhs_gen.pop().unwrap();
+        let mut rhs_last = rhs_gen.pop().unwrap();
         pre.append(&mut rhs_gen);
 
         if operator.data == Operator::Assign && used {
@@ -256,6 +256,25 @@ impl IRGenerator {
             }));
 
             pre.push(node.convert(Node::VariableCall(id.clone())));
+        } else if operator.data == Operator::Access {
+            if let Node::FunctionCall { parameters, .. } = &mut rhs_last.data {
+                let mut new_params = Vec::new();
+                new_params.push(node.convert(Node::_Optional(Box::new(lhs_last.clone()))));
+                new_params.append(parameters);
+                *parameters = new_params;
+
+                pre.push(node.convert(Node::BinaryOperation { 
+                    lhs: Box::new(lhs_last), 
+                    operator, 
+                    rhs: Box::new(rhs_last) 
+                }));
+            } else {
+                pre.push(node.convert(Node::BinaryOperation { 
+                    lhs: Box::new(lhs_last), 
+                    operator, 
+                    rhs: Box::new(rhs_last) 
+                }));
+            }
         } else {
             pre.push(node.convert(Node::BinaryOperation { 
                 lhs: Box::new(lhs_last), 

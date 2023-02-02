@@ -46,7 +46,8 @@ pub enum Node {
         access: Option<Positioned<AccessModifier>>
     },
     // Compiler Specific Annotation
-    _Unchecked(Box<Positioned<Node>>)
+    _Unchecked(Box<Positioned<Node>>),
+    _Optional(Box<Positioned<Node>>)
 }
 
 impl Node {
@@ -80,7 +81,8 @@ impl Node {
             Node::Return(_) => format!("Return"),
             Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
             Node::SpaceDefinition { name, .. } => format!("Space({})", name.data),
-            Node::_Unchecked(inner) => inner.data.short_name(),
+            Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
+            Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
         }
     }
 
