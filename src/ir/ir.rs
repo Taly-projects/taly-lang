@@ -284,8 +284,45 @@ impl IRGenerator {
         };
 
         let mut new_body = Vec::new();
+        let mut has_destructor = false;
         for node in body.iter() {
+            if let Node::FunctionDefinition { name: function_name, return_type, parameters, .. } = &node.data {
+                if function_name.data == "destroy" {
+                    if has_destructor {
+                        todo!("err destructor already defined!");
+                    } 
+                    has_destructor = true;
+                    
+                    // Check destructor
+                    if return_type.is_some() {
+                        todo!("err destructor shouldn't return anything");
+                    }
+    
+                    if !parameters.is_empty() {
+                        todo!("err destructor shouldn't have parameters");
+                    }
+                }
+
+            }
             new_body.append(&mut self.generate_class_definition_body(node.clone(), name.clone())?);
+        }
+
+        if !has_destructor {
+            new_body.append(&mut self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
+                name: name.convert("destroy".to_string()), 
+                external: false, 
+                constructor: false, 
+                parameters: vec![], 
+                return_type: None, 
+                body: vec![
+                    name.convert(Node::_Unchecked(Box::new(name.convert(Node::FunctionCall { 
+                        name: name.convert("free".to_string()), 
+                        parameters: vec![
+                            name.convert(Node::VariableCall("self".to_string()))
+                        ] 
+                    }))))
+                ] 
+            }), name.clone())?);
         }
 
         Ok(vec![node.convert(Node::ClassDefinition { 
