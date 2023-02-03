@@ -100,7 +100,7 @@ impl Checker {
                         } else if let Some(space) = self.scope.get().get_space(self.trace.clone(), str.clone()) {
                             Some(space)
                         } else {
-                            todo!("Type not find!");
+                            return Err(CheckerError::SymbolNotFound(node.convert(str.clone())));
                         }
                     }
                 };
@@ -303,7 +303,7 @@ impl Checker {
         }
     }
 
-    fn check_access_modifier(&mut self, selected: &MutRef<Scope>) -> Result<(), CheckerError> {
+    fn check_access_modifier(&mut self, node: Positioned<()>, selected: &MutRef<Scope>) -> Result<(), CheckerError> {
         let selected = selected.get();
         
         if self.trace.follows_path(&selected.trace) {
@@ -312,14 +312,13 @@ impl Checker {
             println!("\n\n{:?}\n{:?}\n\n", selected.trace, self.trace);
             match &access.data {
                 AccessModifier::Public => Ok(()),
-                AccessModifier::Private => todo!("error not accessible"),
-                AccessModifier::Protected => todo!("error not accessible"),
+                AccessModifier::Private => Err(CheckerError::CannotAccessPrivateMember(node, selected.pos.clone())),
+                AccessModifier::Protected => Err(CheckerError::CannotAccessProtectedMember(node, selected.pos.clone())),
                 AccessModifier::Locked => unimplemented!(),
                 AccessModifier::Guarded => unimplemented!(),
             }
         } else {
-            println!("\n\n{:?}\n{:?}\n\n", selected.trace, self.trace);
-            todo!("error not accessible (no access {:#?})", selected.scope)
+            Err(CheckerError::CannotAccessPrivateMember(node, selected.pos.clone()))
         }
     }
 
@@ -406,7 +405,7 @@ impl Checker {
             }
 
             if let Some(selected_rhs) = &checked_rhs.selected {
-                self.check_access_modifier(selected_rhs)?;
+                self.check_access_modifier(node.convert(()), selected_rhs)?;
             }
 
             return Ok(NodeInfo {
@@ -445,7 +444,7 @@ impl Checker {
                 }
 
                 if let Some(selected_rhs) = &checked_rhs.selected {
-                    self.check_access_modifier(selected_rhs)?;
+                    self.check_access_modifier(node.convert(()), selected_rhs)?;
                 }
 
                 return Ok(NodeInfo {
@@ -458,10 +457,10 @@ impl Checker {
                     selected: checked_rhs.selected
                 })
             } else {
-                todo!("Could not find class")
+                return Err(CheckerError::SymbolNotFound(data_type));
             }
         } else {
-            todo!("Error nothing selected!")
+            return Err(CheckerError::CannotAccessAnythingHere(lhs.convert(())));
         }
     }
 

@@ -166,7 +166,7 @@ impl IRGenerator {
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::VariableDefinition { access, .. } => {
                 if access.is_some() {
-                    todo!("Error cannot specify access!")
+                    Err(IRError::CannotSpecifyAccessHere(node.convert(())))
                 } else {
                     self.generate_variable_definition(node)
                 }
@@ -313,22 +313,22 @@ impl IRGenerator {
         };
 
         let mut new_body = Vec::new();
-        let mut has_destructor = false;
+        let mut destructor = None;
         for node in body.iter() {
             if let Node::FunctionDefinition { name: function_name, return_type, parameters, .. } = &node.data {
                 if function_name.data == "destroy" {
-                    if has_destructor {
-                        todo!("err destructor already defined!");
+                    if let Some(destructor) = destructor {
+                        return Err(IRError::DestructorAlreadyDefined(node.convert(()), destructor));
                     } 
-                    has_destructor = true;
+                    destructor = Some(node.convert(()));
 
                     // Check destructor
                     if return_type.is_some() {
-                        todo!("err destructor shouldn't return anything");
+                        return Err(IRError::DestructorShouldNotReturnAnything(node.convert(())));
                     }
     
                     if !parameters.is_empty() {
-                        todo!("err destructor shouldn't have parameters");
+                        return Err(IRError::DestructorShouldNotHaveParameters(node.convert(())));
                     }
                 }
 
@@ -336,7 +336,7 @@ impl IRGenerator {
             new_body.append(&mut self.generate_class_definition_body(node.clone(), name.clone())?);
         }
 
-        if !has_destructor {
+        if destructor.is_none() {
             new_body.append(&mut self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
                 name: name.convert("destroy".to_string()), 
                 external: false, 

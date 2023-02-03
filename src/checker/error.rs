@@ -12,7 +12,10 @@ pub enum CheckerError {
     VariableNotInitialized(Positioned<String>),
     CannotAssignToConstantExpression(Positioned<()>),
     CannotAssignToConstant(Positioned<()>, Positioned<String>),
-    CannotInferType(Positioned<String>)
+    CannotInferType(Positioned<String>),
+    CannotAccessAnythingHere(Positioned<()>),
+    CannotAccessPrivateMember(Positioned<()>, Positioned<()>),
+    CannotAccessProtectedMember(Positioned<()>, Positioned<()>)
 }
 
 impl CheckerError {
@@ -67,6 +70,23 @@ impl CheckerError {
                 ErrorFormat::new(ErrorType::Error)
                     .add_message(format!("Cannot infer type of '{}'! ", var.data), Some(var.convert(())))
                     .set_step("Checker".to_string()).print(src);
+            }
+            CheckerError::CannotAccessAnythingHere(node) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Cannot selected anything here:"), Some(node.clone()))
+                    .set_step("Checker".to_string()).print(src)
+            }
+            CheckerError::CannotAccessPrivateMember(node, definition) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Cannot access private member:"), Some(node.clone()))
+                    .add_message(format!("Defined private here:"), Some(definition.clone()))
+                    .set_step("Checker".to_string()).print(src)
+            },
+            CheckerError::CannotAccessProtectedMember(node, definition) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Cannot access protected member:"), Some(node.clone()))
+                    .add_message(format!("Defined private here:"), Some(definition.clone()))
+                    .set_step("Checker".to_string()).print(src)
             }
         }
     }
