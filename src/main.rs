@@ -2,7 +2,7 @@ use std::process::exit;
 
 use colored::Colorize;
 
-use crate::{util::{source_file::SourceFile, position::Positioned, reference::MutRef}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}, symbolizer::{symbolizer::Symbolizer, scope::{Scope}}, checker::checker::Checker, generator::{generator::Generator, project::Project}};
+use crate::{util::{source_file::SourceFile, position::Positioned, reference::MutRef}, lexer::{tokens::Token, lexer::Lexer}, parser::{parser::Parser, node::Node}, ir::{output::IROutput, ir::IRGenerator}, symbolizer::{symbolizer::Symbolizer, scope::{Scope}}, checker::checker::Checker, generator::{generator::Generator, project::Project}, post_processor::post_processor::PostProcessor};
 
 pub mod util;
 pub mod lexer;
@@ -10,6 +10,7 @@ pub mod parser;
 pub mod ir;
 pub mod symbolizer;
 pub mod checker;
+pub mod post_processor;
 pub mod generator;
 
 fn read_file(path: &str) -> SourceFile {
@@ -77,6 +78,11 @@ fn check(src: &SourceFile, ir_output: IROutput, scope: MutRef<Scope>) -> IROutpu
     }
 }
 
+fn post_process(ir_output: IROutput) -> IROutput {
+    let mut post_processor = PostProcessor::new(ir_output);
+    post_processor.process()
+}
+
 fn generate(ir_output: IROutput) -> Project {
     let mut generator = Generator::new(ir_output);
     generator.generate()
@@ -136,9 +142,22 @@ fn main() {
     }
     println!("\n");
 
+    // Post processor
+    println!("{}", "\n/> Post Processor".truecolor(81, 255, 255));
+    let post_processor_output = post_process(checker_output);
+
+    for include in post_processor_output.includes.iter() {
+        println!("{:?}", include);
+    }
+
+    for node in post_processor_output.ast.iter() {
+        println!("{:#?}", node);
+    }
+    println!("\n");
+
     // Generator
     println!("{}", "\n/> Generator".truecolor(81, 255, 255));
-    let project = generate(checker_output);
+    let project = generate(post_processor_output);
 
     for file in project.files.iter() {
         println!("{}.h", file.name);
