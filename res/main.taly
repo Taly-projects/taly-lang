@@ -6,6 +6,8 @@ class I32
 
     pub new create(value: c_int) =>
         self.inner = Math.add(value, 1)
+    
+    pub fn BYE(): c_string => "BYE"
 
 fn main() =>
-    const x = I32.create(1)
+    const x = I32.create(1).BYE()

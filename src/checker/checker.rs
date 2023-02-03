@@ -429,7 +429,6 @@ impl Checker {
 
                     if let Some(selected_rhs) = &checked_rhs.selected {
                         self.check_access(selected_rhs)?;
-                        println!("Selected from \n'{:#?}'\nScope: {:#?}", node, selected_rhs.get());
                     }
 
                     return Ok(NodeInfo {
@@ -441,6 +440,48 @@ impl Checker {
                         data_type: checked_rhs.data_type,
                         selected: checked_rhs.selected
                     })
+                } else if let Some(data_type) = checked_lhs.data_type {
+                    if let Some(class) = self.scope.get().get_class(self.trace.clone(), data_type.data.clone()) {
+                        let prev_scope = self.scope.clone();
+                        let prev_trace = self.trace.clone();
+                        let prev_selected = self.selected;
+                        self.scope = class;
+                        self.trace = Trace::full();
+                        self.selected = true;
+                        
+                        let base_scope_changed = if self.base_scope.is_none() {
+                            self.base_scope = Some(prev_scope.clone());
+                            true
+                        } else {
+                            false
+                        };
+
+                        let checked_rhs = self.check_node(*rhs.clone())?;
+                        
+                        self.scope = prev_scope;
+                        self.trace = prev_trace;
+                        self.selected = prev_selected;
+
+                        if base_scope_changed {
+                            self.base_scope = None;
+                        }
+
+                        if let Some(selected_rhs) = &checked_rhs.selected {
+                            self.check_access(selected_rhs)?;
+                        }
+
+                        return Ok(NodeInfo {
+                            checked: node.convert(Node::BinaryOperation { 
+                                lhs: Box::new(checked_lhs.checked), 
+                                operator, 
+                                rhs: Box::new(checked_rhs.checked) 
+                            }),
+                            data_type: checked_rhs.data_type,
+                            selected: checked_rhs.selected
+                        })
+                    } else {
+                        todo!("Could not find class")
+                    }
                 } else {
                     todo!("Error nothing selected!")
                 }
