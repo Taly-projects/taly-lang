@@ -204,7 +204,7 @@ impl Generator {
         file
     }
 
-    fn generate_class_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
+    fn generate_class_definition(&mut self, node: Positioned<Node>, file: &mut File) {
         let Node::ClassDefinition { name, body, .. } = node.data.clone() else {
             unreachable!()
         };
@@ -244,7 +244,7 @@ impl Generator {
         struct_buf.push_str(&name.data);
         struct_buf.push_str(";\n\n");
 
-        let file = project.get_file(name.data.clone());
+        // let file = project.get_file(name.data.clone());
         file.header.push_str(&struct_buf);
 
         for method in methods.iter() {
@@ -289,7 +289,7 @@ impl Generator {
                     main_file.header.push_str(&file.header);
                     main_file.src.push_str(&file.src);
                 }
-                Node::ClassDefinition { .. } => self.generate_class_definition(node, &mut project),
+                Node::ClassDefinition { .. } => self.generate_class_definition(node, project.get_file("main".to_string())),
                 Node::SpaceDefinition { .. } => self.generate_space_definition(node, &mut project),
                 _ => unreachable!()
             }

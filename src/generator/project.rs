@@ -2,6 +2,7 @@
 //                                               File                                             //
 //////////////////////////////////////////////////////////////////////////////////////////////////// 
 
+#[derive(Clone)]
 pub struct File {
     pub name: String,
     pub header: String,
