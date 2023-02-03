@@ -231,7 +231,7 @@ impl Checker {
         };
 
         // Find scope-symbol
-        let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.data.clone()) else {
+        let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.data.clone(), true) else {
             unreachable!()
         };
 
@@ -270,9 +270,7 @@ impl Checker {
             unreachable!()
         };
 
-        println!("Variable call: {}\nscope: {:#?}", name, self.scope.get());
-
-        if let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.clone()) {
+        if let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.clone(), self.scope.get().is_variable()) {
             let ScopeType::Variable { var_type: def_var_type, name: def_name, data_type: def_data_type, initialized: def_initialized } = &variable.get().scope else {
                 unreachable!()
             };

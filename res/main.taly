@@ -2,8 +2,8 @@ pub class I32
     pub var inner: c_int
 
     pub new create(value: c_int) =>
-        self.inner = value
+        self.inner = Value
 
 fn main() =>
     const x = I32.create(0)
-    x.inner.inner
+    x.inner

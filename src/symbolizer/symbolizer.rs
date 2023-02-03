@@ -60,7 +60,7 @@ impl Symbolizer {
             }, Some(function_scope_ref.clone()), Trace::default(), None);
 
             // Check if unique
-            if let Some(previous) = scope.get().enter_variable(Trace::full(), param.name.data.clone(), true) {
+            if let Some(previous) = scope.get().enter_variable(Trace::full(), param.name.data.clone(), true, true) {
                 return Err(SymbolizerError::SymbolAlreadyDefined(param.name, previous.get().pos.clone()));
             }
 
@@ -91,7 +91,7 @@ impl Symbolizer {
         }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique
-        if let Some(previous) = scope.get().enter_variable(Trace::full(), name.data.clone(), true) {
+        if let Some(previous) = scope.get().enter_variable(Trace::full(), name.data.clone(), true, true) {
             return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
 

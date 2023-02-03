@@ -68,6 +68,23 @@ impl Scope {
         }
     }
 
+    pub fn short_name(&self) -> String {
+        match &self.scope {
+            ScopeType::Root { .. } => "Root".to_string(),
+            ScopeType::Function { name, .. } => format!("Function({})", name.data),
+            ScopeType::Variable { name, .. } => format!("Variable({})", name.data),
+            ScopeType::Class { name, .. } => format!("Class({})", name.data),
+            ScopeType::Space { name, .. } => format!("Space({})", name.data),
+        }
+    }
+
+    pub fn is_variable(&self) -> bool {
+        match self.scope {
+            ScopeType::Variable { .. } => true,
+            _ => false
+        }
+    }
+
     pub fn add_child(&mut self, scope: Scope) {
         match &mut self.scope {
             ScopeType::Root { children } |
@@ -168,83 +185,45 @@ impl Scope {
         None
     }
 
-    pub fn enter_variable(&mut self, trace: Trace, name: String, look_links: bool) -> Option<MutRef<Scope>> {
-        let mut check_space = None;
-        let mut check_class = None;
-        match &mut self.scope {
-            ScopeType::Root { children } => {
-                for child in children.iter_mut() {
-                    if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-                            return Some(MutRef::new(child));
-                        }
-                    }
-                }
-            }
-            ScopeType::Function { children, .. } => {
-                for child in children.iter_mut() {
-                    if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-                            return Some(MutRef::new(child));
-                        }
-                    }
-                }
-            }
-            ScopeType::Class {name: class_name, children, linked_space, ..}  => {
-                for child in children.iter_mut() {
-                    if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-                            return Some(MutRef::new(child));
-                        }
-                    }
-                }
-
-                if *linked_space && look_links{
-                    check_space = Some(class_name.clone());
-                }
-            }
-            ScopeType::Space { name: space_name, children, linked_class, .. } => {
-                for child in children.iter_mut() {
-                    if let ScopeType::Variable { name: c_name, .. } = &child.scope {
-                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-                            return Some(MutRef::new(child));
-                        }
-                    }
-                }
-
-                if *linked_class && look_links {
-                    check_class = Some(space_name.clone());
-                }
-            },
-            ScopeType::Variable { data_type, .. } => {
-                if let Some(data_type) = data_type {
-                    check_class = Some(data_type.clone());
+    fn get_variable_in_children(children: &mut Vec<Scope>, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        for child in children.iter_mut() {
+            if let ScopeType::Variable { name: var_name, .. } = &child.scope {
+                if var_name.data == name && (trace.full || child.trace.index <= trace.index) {
+                    return Some(MutRef::new(child));
                 }
             }
         }
+        None
+    }
 
-        if let Some(space) = check_space {
-            self.get_space(Trace::full(), space.data.clone()).unwrap().get().enter_variable(trace, name, false)
-        } else if let Some(class) = check_class {
-            if let Some(class) = self.get_class(Trace::full(), class.data.clone()) {
-                class.get().enter_variable(trace, name, false)
-            } else {
-                None
-            }
-        } else {
-            None
+    pub fn enter_variable(&mut self, trace: Trace, name: String, look_links: bool, allow_fields: bool) -> Option<MutRef<Scope>> {
+        match &mut self.scope {
+            ScopeType::Function { children, .. } => Self::get_variable_in_children(children, trace, name),
+            ScopeType::Variable { data_type, .. } => {
+                if let Some(data_type) = data_type.clone() {
+                    if let Some(class) = self.get_class(trace.clone(), data_type.data.clone()) {
+                        class.get().enter_variable(trace, name, look_links, true)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
+            ScopeType::Class { children, .. } if allow_fields => Self::get_variable_in_children(children, trace, name),
+            _ => None
         }
     }
 
-    pub fn get_variable(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
-        if let Some(fun) = self.enter_variable(trace.clone(), name.clone(), true) {
+    pub fn get_variable(&mut self, trace: Trace, name: String, allow_fields: bool) -> Option<MutRef<Scope>> {
+        if let Some(fun) = self.enter_variable(trace.clone(), name.clone(), true, allow_fields) {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
             if trace.full {
-                return parent.get().get_variable(trace, name);
+                return parent.get().get_variable(trace, name, allow_fields);
             } else {
-                return parent.get().get_variable(*trace.parent.unwrap(), name);
+                return parent.get().get_variable(*trace.parent.unwrap(), name, allow_fields);
             }
         }
         None
