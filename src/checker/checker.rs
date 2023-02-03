@@ -21,8 +21,9 @@ pub struct Checker {
     scope: MutRef<Scope>,
     index: usize,
     trace: Trace,
-    pub inferred: Vec<(Trace, Positioned<String>)>,
-    pub selected: bool
+    inferred: Vec<(Trace, Positioned<String>)>,
+    selected: bool,
+    base_scope: Option<MutRef<Scope>>
 }
 
 impl Checker {
@@ -34,7 +35,8 @@ impl Checker {
             index: 0,
             trace: Trace::default(),
             inferred: Vec::new(),
-            selected: false
+            selected: false,
+            base_scope: None
         }
     }
 
@@ -181,6 +183,11 @@ impl Checker {
             unreachable!()
         };
 
+        // Set scope to base scope
+        if let Some(base_scope) = self.base_scope.take() {
+            self.scope = base_scope;
+        }
+
         // Check parameters (number + type)
         let parameters_len = parameters.len();
         let mut index = 0;
@@ -262,6 +269,8 @@ impl Checker {
         let Node::VariableCall(name) = node.data.clone() else {
             unreachable!()
         };
+
+        println!("Variable call: {}\nscope: {:#?}", name, self.scope.get());
 
         if let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.clone()) {
             let ScopeType::Variable { var_type: def_var_type, name: def_name, data_type: def_data_type, initialized: def_initialized } = &variable.get().scope else {
@@ -400,16 +409,27 @@ impl Checker {
                     self.scope = selected;
                     self.trace = Trace::full();
                     self.selected = true;
+                    
+                    let base_scope_changed = if self.base_scope.is_none() {
+                        self.base_scope = Some(prev_scope.clone());
+                        true
+                    } else {
+                        false
+                    };
 
                     let checked_rhs = self.check_node(*rhs.clone())?;
-
                     
                     self.scope = prev_scope;
                     self.trace = prev_trace;
                     self.selected = prev_selected;
-                    
+
+                    if base_scope_changed {
+                        self.base_scope = None;
+                    }
+
                     if let Some(selected_rhs) = &checked_rhs.selected {
                         self.check_access(selected_rhs)?;
+                        println!("Selected from \n'{:#?}'\nScope: {:#?}", node, selected_rhs.get());
                     }
 
                     return Ok(NodeInfo {

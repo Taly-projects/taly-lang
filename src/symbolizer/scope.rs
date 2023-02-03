@@ -226,7 +226,11 @@ impl Scope {
         if let Some(space) = check_space {
             self.get_space(Trace::full(), space.data.clone()).unwrap().get().enter_variable(trace, name, false)
         } else if let Some(class) = check_class {
-            self.get_class(Trace::full(), class.data.clone()).unwrap().get().enter_variable(trace, name, false)
+            if let Some(class) = self.get_class(Trace::full(), class.data.clone()) {
+                class.get().enter_variable(trace, name, false)
+            } else {
+                None
+            }
         } else {
             None
         }

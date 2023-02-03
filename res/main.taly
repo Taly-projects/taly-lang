@@ -1,25 +1,11 @@
-use "std-stdio"
+space Math
+    pub fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
 
-pub class I32
-    var inner: c_int = 0
+class I32
+    var inner: c_int
 
     pub new create(value: c_int) =>
-        self.inner = value
-
-    pub fn BYE(): c_string => "BYE"
-
-space I32
-
-    fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
-
-extern fn printf(msg: c_string)
-
-fn HELLO(): c_string => "Hello"
-
-fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
+        self.inner = Math.add(value, 1)
 
 fn main() =>
-    var z: I32 = I32.create(0)
-    z.BYE()
-    const x: c_string = HELLO()
-    printf(x)
+    const x = I32.create(1)
