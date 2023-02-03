@@ -78,9 +78,20 @@ impl IRGenerator {
             unreachable!()
         };
 
+        let mut pre = Vec::new();
+
+        let mut new_params = Vec::new();
+        for param in parameters {
+            let mut gen_param = self.generate_expr(param)?;
+            let gen_param_last = gen_param.pop().unwrap();
+            
+            pre.append(&mut gen_param);
+            new_params.push(gen_param_last);
+        }
+
         Ok(vec![node.convert(Node::FunctionCall { 
             name: name.clone(), 
-            parameters: parameters.clone()
+            parameters: new_params
         })])
     }
 
