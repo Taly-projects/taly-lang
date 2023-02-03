@@ -2,7 +2,7 @@ use crate::{ir::output::IROutput, util::position::Positioned, parser::node::{Nod
 
 pub struct PostProcessor {
     ir_output: IROutput,
-    index: usize
+    index: usize,
 }
 
 impl PostProcessor {
@@ -22,18 +22,18 @@ impl PostProcessor {
         self.index += 1;
     }
 
-    fn process_function_definition(&mut self, node: Positioned<Node>) -> Positioned<Node> {
+    fn process_function_definition(&mut self, node: Positioned<Node>, new_name: Option<String>) -> Positioned<Node> {
         let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body, access  } = node.data.clone() else {
             unreachable!()
         };
 
         let mut new_body = Vec::new();
         for node in body {
-            new_body.push(self.process_node(node));
+            new_body.push(self.process_node(node, None));
         }
 
         node.convert(Node::FunctionDefinition { 
-            name, 
+            name: new_name.map_or(name.clone(), |x| name.convert(x)), 
             external, 
             constructor, 
             parameters, 
@@ -43,18 +43,18 @@ impl PostProcessor {
         })
     }
 
-    fn process_function_call(&mut self, node: Positioned<Node>) -> Positioned<Node> {
+    fn process_function_call(&mut self, node: Positioned<Node>, new_name: Option<String>) -> Positioned<Node> {
         let Node::FunctionCall { name, parameters } = node.data.clone() else {
             unreachable!()
         };
 
         let mut new_params = Vec::new();
         for param in parameters {
-            new_params.push(self.process_node(param));
+            new_params.push(self.process_node(param, None));
         }
 
         node.convert(Node::FunctionCall { 
-            name, 
+            name: new_name.map_or(name.clone(), |x| name.convert(x)), 
             parameters: new_params
         })
     }
@@ -68,7 +68,7 @@ impl PostProcessor {
             var_type, 
             name, 
             data_type, 
-            value: value.map(|x| Box::new(self.process_node(*x))), 
+            value: value.map(|x| Box::new(self.process_node(*x, None))), 
             access 
         })
     }
@@ -79,12 +79,22 @@ impl PostProcessor {
         };
 
         if let Node::FunctionCall { .. } = rhs.data.clone() {
-            self.process_node(*rhs)            
+            self.process_node(*rhs, None)            
+        } else if let Node::_Renamed { name, node } = rhs.data.clone() {
+            if let Node::FunctionCall { .. } = node.data.clone() {
+                self.process_node(*rhs, Some(name))            
+            } else {
+                node.convert(Node::BinaryOperation { 
+                    lhs: Box::new(self.process_node(*lhs, None)), 
+                    operator: operator, 
+                    rhs: Box::new(self.process_node(*rhs, None)) 
+                })
+            }
         } else {
             node.convert(Node::BinaryOperation { 
-                lhs: Box::new(self.process_node(*lhs)), 
+                lhs: Box::new(self.process_node(*lhs, None)), 
                 operator: operator, 
-                rhs: Box::new(self.process_node(*rhs)) 
+                rhs: Box::new(self.process_node(*rhs, None)) 
             })
         }
     }
@@ -95,9 +105,9 @@ impl PostProcessor {
         };
 
         node.convert(Node::BinaryOperation { 
-            lhs: Box::new(self.process_node(*lhs)), 
+            lhs: Box::new(self.process_node(*lhs, None)), 
             operator, 
-            rhs: Box::new(self.process_node(*rhs)) 
+            rhs: Box::new(self.process_node(*rhs, None)) 
         })
     }
 
@@ -106,7 +116,7 @@ impl PostProcessor {
             unreachable!()
         };
 
-        node.convert(Node::Return(expr.map(|x| Box::new(self.process_node(*x)))))
+        node.convert(Node::Return(expr.map(|x| Box::new(self.process_node(*x, None)))))
     }
 
     fn process_class_definition(&mut self, node: Positioned<Node>) -> Positioned<Node> {
@@ -116,7 +126,7 @@ impl PostProcessor {
 
         let mut new_body = Vec::new();
         for node in body {
-            new_body.push(self.process_node(node));
+            new_body.push(self.process_node(node, None));
         }
 
         node.convert(Node::ClassDefinition { 
@@ -133,7 +143,7 @@ impl PostProcessor {
 
         let mut new_body = Vec::new();
         for node in body {
-            new_body.push(self.process_node(node));
+            new_body.push(self.process_node(node, None));
         }
 
         node.convert(Node::SpaceDefinition { 
@@ -143,11 +153,11 @@ impl PostProcessor {
         })
     }
 
-    fn process_node(&mut self, node: Positioned<Node>) -> Positioned<Node> {
+    fn process_node(&mut self, node: Positioned<Node>, new_name: Option<String>) -> Positioned<Node> {
         match node.data.clone() {
             Node::Value(_) => node,
-            Node::FunctionDefinition { .. } => self.process_function_definition(node),
-            Node::FunctionCall { .. } => self.process_function_call(node),
+            Node::FunctionDefinition { .. } => self.process_function_definition(node, new_name),
+            Node::FunctionCall { .. } => self.process_function_call(node, new_name),
             Node::Use(_) => node,
             Node::VariableDefinition { .. } => self.process_variable_definition(node),
             Node::VariableCall(_) => node,
@@ -156,8 +166,9 @@ impl PostProcessor {
             Node::Return(_) => self.process_return(node),
             Node::ClassDefinition { .. } => self.process_class_definition(node),
             Node::SpaceDefinition { .. } => self.process_space_definition(node),
-            Node::_Unchecked(inner) => self.process_node(*inner),
-            Node::_Optional(inner) => self.process_node(*inner),
+            Node::_Unchecked(inner) => self.process_node(*inner, None),
+            Node::_Optional(inner) => self.process_node(*inner, None),
+            Node::_Renamed { name, node } => self.process_node(*node, Some(name))
         }
     }
 
@@ -168,7 +179,7 @@ impl PostProcessor {
         };
 
         while let Some(current) = self.current() {
-            output.ast.push(self.process_node(current));
+            output.ast.push(self.process_node(current, None));
             self.advance();
         }
 

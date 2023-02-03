@@ -47,7 +47,11 @@ pub enum Node {
     },
     // Compiler Specific Annotation
     _Unchecked(Box<Positioned<Node>>),
-    _Optional(Box<Positioned<Node>>)
+    _Optional(Box<Positioned<Node>>),
+    _Renamed {
+        name: String,
+        node: Box<Positioned<Node>>
+    }
 }
 
 impl Node {
@@ -83,6 +87,7 @@ impl Node {
             Node::SpaceDefinition { name, .. } => format!("Space({})", name.data),
             Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
+            Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),
         }
     }
 

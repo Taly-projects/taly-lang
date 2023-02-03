@@ -127,9 +127,11 @@ impl Checker {
         };
 
         // Enter Scope
+        let processed_name;
         if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true, true) {
             function.get().parent = Some(self.scope.clone()); // FIXME: Somehow fix the problem
             self.scope = function;
+            processed_name = self.scope.get().process_name();
         } else {
             unreachable!("Symbol '{}' not found", name.data);
         }
@@ -153,18 +155,20 @@ impl Checker {
         }
 
         Ok(NodeInfo {
-            checked: node.convert(Node::FunctionDefinition { 
-                name, 
-                external, 
-                constructor,
-                parameters, 
-                return_type, 
-                body: new_body,
-                access
-            }),
-            data_type: None,
-            selected: None,
-            function_called: None
+            checked: node.convert(Node::_Renamed { 
+                name: processed_name, 
+                node: Box::new(node.convert(Node::FunctionDefinition { 
+                    name, 
+                    external, 
+                    constructor,
+                    parameters, 
+                    return_type, 
+                    body: new_body,
+                    access
+                }))}),
+                data_type: None,
+                selected: None,
+                function_called: None
         })
     }
 
@@ -174,14 +178,17 @@ impl Checker {
         };
 
         // Find scope-symbol
+        let processed_name;
         let function = if self.selected {
             if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true, self.scope.get().is_variable()) {
+                processed_name = function.get().process_name();
                 function
             } else {
                 return Err(CheckerError::SymbolNotFound(name));
             }
         } else {
             if let Some(function) = self.scope.get().get_function(self.trace.clone(), name.data.clone(), false) {
+                processed_name = function.get().process_name();
                 function
             } else {
                 return Err(CheckerError::SymbolNotFound(name));
@@ -226,9 +233,12 @@ impl Checker {
         }
 
         return Ok(NodeInfo { 
-            checked: node.convert(Node::FunctionCall { 
-                name, 
-                parameters: checked_parameters
+            checked: node.convert(Node::_Renamed { 
+                name: processed_name, 
+                node: Box::new(node.convert(Node::FunctionCall { 
+                    name, 
+                    parameters: checked_parameters
+                }))
             }), 
             data_type: def_return_type.clone(),
             selected: None,
@@ -675,7 +685,8 @@ impl Checker {
                 selected: None,
                 function_called: None
             }),
-            Node::_Optional(_) => unreachable!("Unexpected _Optional")
+            Node::_Optional(_) => unreachable!("Unexpected _Optional"),
+            Node::_Renamed { .. } => unreachable!("Unexpected _Renamed")
         }
     }
 

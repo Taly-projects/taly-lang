@@ -78,6 +78,32 @@ impl Scope {
         }
     }
 
+    pub fn process_name(&mut self) -> String {
+        let mut buf = String::new();
+        if let Some(parent) = &self.parent {
+            buf.push_str(&parent.get().process_name());
+            if !self.is_root() && !parent.get().is_root() {
+                buf.push('_');
+            }
+        } 
+        match &self.scope {
+            ScopeType::Function { name, .. } => buf.push_str(&name.data),
+            ScopeType::Variable { name, .. } => return name.data.clone(),
+            ScopeType::Class { name, .. } => buf.push_str(&name.data),
+            ScopeType::Space { name, .. } => buf.push_str(&name.data),
+            _ => {}
+        }
+
+        buf
+    }
+
+    pub fn is_root(&self) -> bool {
+        match self.scope {
+            ScopeType::Root { .. } => true,
+            _ => false
+        }
+    }
+
     pub fn is_variable(&self) -> bool {
         match self.scope {
             ScopeType::Variable { .. } => true,
