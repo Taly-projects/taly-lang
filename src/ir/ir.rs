@@ -314,8 +314,13 @@ impl IRGenerator {
 
         let mut new_body = Vec::new();
         let mut destructor = None;
+        let mut has_constructor = false;
+        let mut has_fields = false;
         for node in body.iter() {
-            if let Node::FunctionDefinition { name: function_name, return_type, parameters, .. } = &node.data {
+            if let Node::FunctionDefinition { name: function_name, return_type, parameters, constructor, .. } = &node.data {
+                if *constructor {
+                    has_constructor = true;
+                }
                 if function_name.data == "destroy" {
                     if let Some(destructor) = destructor {
                         return Err(IRError::DestructorAlreadyDefined(node.convert(()), destructor));
@@ -330,12 +335,19 @@ impl IRGenerator {
                     if !parameters.is_empty() {
                         return Err(IRError::DestructorShouldNotHaveParameters(node.convert(())));
                     }
+
+                    if *constructor {
+                        return Err(IRError::DestructorShouldNotBeConstructor(node.convert(())));
+                    }
                 }
 
+            } else if let Node::VariableDefinition { .. } = &node.data {
+                has_fields = true;
             }
             new_body.append(&mut self.generate_class_definition_body(node.clone(), name.clone())?);
         }
 
+        // Generate destructor
         if destructor.is_none() {
             new_body.append(&mut self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
                 name: name.convert("destroy".to_string()), 
@@ -351,6 +363,19 @@ impl IRGenerator {
                         ] 
                     }))))
                 ],
+                access: Some(node.convert(AccessModifier::Public)) 
+            }), name.clone())?);
+        }
+
+        // Generate default constructor
+        if !has_constructor && !has_fields {
+            new_body.append(&mut self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
+                name: name.convert("create".to_string()), 
+                external: false, 
+                constructor: true, 
+                parameters: vec![], 
+                return_type: None, 
+                body: vec![], 
                 access: Some(node.convert(AccessModifier::Public)) 
             }), name.clone())?);
         }

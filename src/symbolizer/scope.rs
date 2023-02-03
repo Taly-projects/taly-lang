@@ -178,63 +178,7 @@ impl Scope {
             None
         }
     }
-
-    // pub fn enter_function(&mut self, trace: Trace, name: String, look_links: bool) -> Option<MutRef<Scope>> {
-    //     let mut check_space = None;
-    //     let mut check_class = None;
-    //     match &mut self.scope {
-    //         ScopeType::Root { children } => {
-    //             for child in children.iter_mut() {
-    //                 if let ScopeType::Function { name: c_name, .. } = &child.scope {
-    //                     if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-    //                         return Some(MutRef::new(child));
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         ScopeType::Class {name: class_name, children, linked_space, ..}  => {
-    //             for child in children.iter_mut() {
-    //                 if let ScopeType::Function { name: c_name, .. } = &child.scope {
-    //                     if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-    //                         return Some(MutRef::new(child));
-    //                     }
-    //                 }
-    //             }
-
-    //             if *linked_space && look_links{
-    //                 check_space = Some(class_name.clone());
-    //             }
-    //         }
-    //         ScopeType::Space { name: space_name, children, linked_class, .. } => {
-    //             for child in children.iter_mut() {
-    //                 if let ScopeType::Function { name: c_name, .. } = &child.scope {
-    //                     if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
-    //                         return Some(MutRef::new(child));
-    //                     }
-    //                 }
-    //             }
-
-    //             if *linked_class && look_links {
-    //                 check_class = Some(space_name.clone());
-    //             }
-    //         },
-    //         ScopeType::Variable { data_type, .. } => {
-    //             if let Some(data_type) = data_type {
-    //                 check_class = Some(data_type.clone());
-    //             }
-    //         }
-    //         _ => {}
-    //     }
-
-    //     if let Some(space) = check_space {
-    //         self.get_space(Trace::full(), space.data.clone()).unwrap().get().enter_function(trace, name, false)
-    //     } else if let Some(class) = check_class {
-    //         self.get_class(Trace::full(), class.data.clone()).unwrap().get().enter_function(trace, name, false)
-    //     } else {
-    //         None
-    //     }
-    // }
-
+    
     pub fn get_function(&mut self, trace: Trace, name: String, allow_fields: bool) -> Option<MutRef<Scope>> {
         if let Some(fun) = self.enter_function(trace.clone(), name.clone(), true, allow_fields) {
             return Some(fun);

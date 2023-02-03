@@ -11,6 +11,7 @@ pub enum IRError {
     DestructorAlreadyDefined(Positioned<()>, Positioned<()>),
     DestructorShouldNotReturnAnything(Positioned<()>),
     DestructorShouldNotHaveParameters(Positioned<()>),
+    DestructorShouldNotBeConstructor(Positioned<()>),
 }
 
 impl IRError {
@@ -51,6 +52,11 @@ impl IRError {
             IRError::DestructorShouldNotHaveParameters(node) => {
                 ErrorFormat::new(ErrorType::Error)
                     .add_message(format!("Destructor should not have parameters"), Some(node.clone()))
+                    .set_step("IR Generator".to_string()).print(src);  
+            },
+            IRError::DestructorShouldNotBeConstructor(node) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Destructor should not be constructor"), Some(node.clone()))
                     .set_step("IR Generator".to_string()).print(src);  
             },
         }

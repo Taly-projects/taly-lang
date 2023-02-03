@@ -1,9 +1,17 @@
 pub class I32
-    pub var inner: c_int
+    var inner: c_int
 
-    pub new create(value: c_int) =>
-        self.inner = Value
+    pub new create(inner: c_int) =>
+        self.inner = inner
+        self.add_one()
+
+    pub fn add_one() =>
+        self.inner = self.inner + 1
+
+pub class Math
+
+    pub fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
 
 fn main() =>
-    const x = I32.create(0)
-    x.inner
+    const y = Math.create()
+    const x = I32.create(y.add(2, 1))
