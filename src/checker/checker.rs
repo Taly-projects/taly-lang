@@ -127,7 +127,7 @@ impl Checker {
         };
 
         // Enter Scope
-        if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true) {
+        if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true, true) {
             function.get().parent = Some(self.scope.clone()); // FIXME: Somehow fix the problem
             self.scope = function;
         } else {
@@ -175,13 +175,13 @@ impl Checker {
 
         // Find scope-symbol
         let function = if self.selected {
-            if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true) {
+            if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true, self.scope.get().is_variable()) {
                 function
             } else {
                 return Err(CheckerError::SymbolNotFound(name));
             }
         } else {
-            if let Some(function) = self.scope.get().get_function(self.trace.clone(), name.data.clone()) {
+            if let Some(function) = self.scope.get().get_function(self.trace.clone(), name.data.clone(), false) {
                 function
             } else {
                 return Err(CheckerError::SymbolNotFound(name));
@@ -209,7 +209,7 @@ impl Checker {
                 } else {
                     param = *inner;
                 }
-            }
+            } 
             let checked_param = self.check_node(param.clone())?;
 
             if let Some(def_param) = def_params.get(index) {

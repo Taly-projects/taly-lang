@@ -43,7 +43,7 @@ impl Symbolizer {
         }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique
-        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone(), true) {
+        if let Some(previous) = scope.get().enter_function(Trace::full(), name.data.clone(), true, true) {
             return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
         }
         
