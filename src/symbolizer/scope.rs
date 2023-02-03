@@ -72,7 +72,7 @@ impl Scope {
         match &self.scope {
             ScopeType::Root { .. } => "Root".to_string(),
             ScopeType::Function { name, .. } => format!("Function({})", name.data),
-            ScopeType::Variable { name, .. } => format!("Variable({})", name.data),
+            ScopeType::Variable { name, data_type, .. } => format!("Variable({:?}, {})", data_type, name.data),
             ScopeType::Class { name, .. } => format!("Class({})", name.data),
             ScopeType::Space { name, .. } => format!("Space({})", name.data),
         }
@@ -161,10 +161,8 @@ impl Scope {
         }
 
         if let Some(space) = check_space {
-            println!("Space found!");
             self.get_space(Trace::full(), space.data.clone()).unwrap().get().enter_function(trace, name, false)
         } else if let Some(class) = check_class {
-            println!("Class found!");
             self.get_class(Trace::full(), class.data.clone()).unwrap().get().enter_function(trace, name, false)
         } else {
             None

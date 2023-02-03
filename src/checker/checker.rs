@@ -23,7 +23,8 @@ pub struct Checker {
     trace: Trace,
     inferred: Vec<(Trace, Positioned<String>)>,
     selected: bool,
-    base_scope: Option<MutRef<Scope>>
+    base_scope: Option<MutRef<Scope>>,
+    block_parent: bool,
 }
 
 impl Checker {
@@ -36,7 +37,8 @@ impl Checker {
             trace: Trace::default(),
             inferred: Vec::new(),
             selected: false,
-            base_scope: None
+            base_scope: None,
+            block_parent: false
         }
     }
 
@@ -187,6 +189,7 @@ impl Checker {
         if let Some(base_scope) = self.base_scope.take() {
             self.scope = base_scope;
         }
+        self.block_parent = false;
 
         // Check parameters (number + type)
         let parameters_len = parameters.len();
@@ -270,7 +273,13 @@ impl Checker {
             unreachable!()
         };
 
-        if let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.clone(), self.scope.get().is_variable()) {
+        let variable = if self.block_parent {
+            self.scope.get().enter_variable(self.trace.clone(), name.clone(), true, self.scope.get().is_variable())
+        } else {
+            self.scope.get().get_variable(self.trace.clone(), name.clone(), self.scope.get().is_variable())
+        };
+
+        if let Some(variable) = variable {
             let ScopeType::Variable { var_type: def_var_type, name: def_name, data_type: def_data_type, initialized: def_initialized } = &variable.get().scope else {
                 unreachable!()
             };
@@ -307,7 +316,6 @@ impl Checker {
         if self.trace.follows_path(&selected.trace) {
             Ok(())
         } else if let Some(access) = &selected.access {
-            println!("\n\n{:?}\n{:?}\n\n", selected.trace, self.trace);
             match &access.data {
                 AccessModifier::Public => Ok(()),
                 AccessModifier::Private => Err(CheckerError::CannotAccessPrivateMember(node, selected.pos.clone())),
@@ -381,9 +389,11 @@ impl Checker {
             let prev_scope = self.scope.clone();
             let prev_trace = self.trace.clone();
             let prev_selected = self.selected;
+            let prev_block_parent = self.block_parent;
             self.scope = selected;
             self.trace = Trace::full();
             self.selected = true;
+            self.block_parent = true;
             
             let base_scope_changed = if self.base_scope.is_none() {
                 self.base_scope = Some(prev_scope.clone());
@@ -397,6 +407,7 @@ impl Checker {
             self.scope = prev_scope;
             self.trace = prev_trace;
             self.selected = prev_selected;
+            self.block_parent = prev_block_parent;
 
             if base_scope_changed {
                 self.base_scope = None;
