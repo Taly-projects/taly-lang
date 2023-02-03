@@ -8,6 +8,7 @@ struct NodeInfo {
     pub checked: Positioned<Node>,
     pub data_type: Option<Positioned<String>>,
     pub selected: Option<MutRef<Scope>>,
+    pub function_called: Option<MutRef<Scope>>
 }
 
 
@@ -76,22 +77,26 @@ impl Checker {
             ValueNode::String(str) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::String(str.clone()))),
                 data_type: Some(node.convert("String".to_string())),
-                selected: None
+                selected: None,
+                function_called: None
             }),
             ValueNode::Bool(b) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::Bool(b))),
                 data_type: Some(node.convert("Bool".to_string())),
-                selected: None
+                selected: None,
+                function_called: None
             }),
             ValueNode::Integer(num) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::Integer(num))),
                 data_type: Some(node.convert("I32".to_string())),
-                selected: None
+                selected: None,
+                function_called: None
             }),
             ValueNode::Decimal(num) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::Decimal(num))),
                 data_type: Some(node.convert("F32".to_string())),
-                selected: None
+                selected: None,
+                function_called: None
             }),
             ValueNode::Type(str) => {
                 let selected = match str.as_str() {
@@ -109,7 +114,8 @@ impl Checker {
                 Ok(NodeInfo {
                     checked: node.convert(Node::Value(ValueNode::Type(str))),
                     data_type: None,
-                    selected
+                    selected,
+                    function_called: None
                 })
         },
         }
@@ -157,7 +163,8 @@ impl Checker {
                 access
             }),
             data_type: None,
-            selected: None
+            selected: None,
+            function_called: None
         })
     }
 
@@ -224,7 +231,8 @@ impl Checker {
                 parameters: checked_parameters
             }), 
             data_type: def_return_type.clone(),
-            selected: None
+            selected: None,
+            function_called: Some(function)
         })
     }
 
@@ -264,7 +272,8 @@ impl Checker {
                 value: value_checked,
                 access
             }), data_type: None,
-            selected: None
+            selected: None,
+            function_called: None
         })
     }
 
@@ -291,19 +300,22 @@ impl Checker {
             Ok(NodeInfo {
                 checked: node.convert(Node::VariableCall(name.clone())),
                 data_type: def_data_type.clone(),
-                selected: Some(variable)
+                selected: Some(variable),
+                function_called: None
             })
         } else if let Some(class) = self.scope.get().get_class(self.trace.clone(), name.clone()) {
             Ok(NodeInfo {
                 checked: node.convert(Node::VariableCall(name.clone())),
                 data_type: None,
-                selected: Some(class)
+                selected: Some(class),
+                function_called: None
             })
         } else if let Some(space) = self.scope.get().get_space(self.trace.clone(), name.clone()) {
             Ok(NodeInfo {
                 checked: node.convert(Node::VariableCall(name.clone())),
                 data_type: None,
-                selected: Some(space)
+                selected: Some(space),
+                function_called: None
             })
         } else {
             return Err(CheckerError::SymbolNotFound(node.convert(name)));
@@ -353,7 +365,8 @@ impl Checker {
                             rhs: Box::new(checked_rhs.checked)
                         }),
                         data_type: Some(data_type.clone()),
-                        selected: None
+                        selected: None,
+                        function_called: None
                     });
                 } else if let Some(rhs_type) = checked_rhs.data_type {
                     self.inferred.push((selected.get().trace.clone(), rhs_type.clone()));
@@ -366,7 +379,8 @@ impl Checker {
                             rhs: Box::new(checked_rhs.checked)
                         }),
                         data_type: Some(rhs_type.clone()),
-                        selected: None
+                        selected: None,
+                        function_called: None
                     });
                 } else {
                     return Err(CheckerError::CannotInferType(selected.get().pos.convert(name.data.clone())));
@@ -415,6 +429,8 @@ impl Checker {
 
             if let Some(selected_rhs) = &checked_rhs.selected {
                 self.check_access_modifier(node.convert(()), selected_rhs)?;
+            } else if let Some(function_called) = &checked_rhs.function_called {
+                self.check_access_modifier(node.convert(()), function_called)?;
             }
 
             return Ok(NodeInfo {
@@ -424,7 +440,8 @@ impl Checker {
                     rhs: Box::new(checked_rhs.checked) 
                 }),
                 data_type: checked_rhs.data_type,
-                selected: checked_rhs.selected
+                selected: checked_rhs.selected,
+                function_called: checked_rhs.function_called
             })
         } else if let Some(data_type) = checked_lhs.data_type {
             if let Some(class) = self.scope.get().get_class(self.trace.clone(), data_type.data.clone()) {
@@ -454,6 +471,8 @@ impl Checker {
 
                 if let Some(selected_rhs) = &checked_rhs.selected {
                     self.check_access_modifier(node.convert(()), selected_rhs)?;
+                } else if let Some(function_called) = &checked_rhs.function_called {
+                    self.check_access_modifier(node.convert(()), function_called)?;
                 }
 
                 return Ok(NodeInfo {
@@ -463,7 +482,8 @@ impl Checker {
                         rhs: Box::new(checked_rhs.checked) 
                     }),
                     data_type: checked_rhs.data_type,
-                    selected: checked_rhs.selected
+                    selected: checked_rhs.selected,
+                    function_called: checked_rhs.function_called
                 })
             } else {
                 return Err(CheckerError::SymbolNotFound(data_type));
@@ -497,6 +517,7 @@ impl Checker {
                             }),
                             data_type: Some(lhs_type),
                             selected: None,
+                            function_called: None
                         })
                     }
                     (Some(_), _) => Err(CheckerError::UnexpectedType(rhs.convert(None), None)),
@@ -547,7 +568,8 @@ impl Checker {
         Ok(NodeInfo { 
             checked: node.convert(Node::Return(checked_return)), 
             data_type: None, 
-            selected: None 
+            selected: None,
+            function_called: None
         })
     }
 
@@ -588,7 +610,8 @@ impl Checker {
                 access
             }),
             data_type: None,
-            selected: None
+            selected: None,
+            function_called: None
         })
     }
 
@@ -629,7 +652,8 @@ impl Checker {
                 access
             }),
             data_type: None,
-            selected: None
+            selected: None,
+            function_called: None
         })
     }
  
@@ -648,7 +672,8 @@ impl Checker {
             Node::_Unchecked(inner) => Ok(NodeInfo { 
                 checked: *inner, 
                 data_type: None, 
-                selected: None 
+                selected: None,
+                function_called: None
             }),
             Node::_Optional(_) => unreachable!("Unexpected _Optional")
         }
