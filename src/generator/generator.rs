@@ -32,7 +32,13 @@ impl Generator {
             "c_int" => "int".to_string(),
             "c_float" => "float".to_string(),
             "void" => "void".to_string(),
-            _ => format!("{}*", data_type)
+            _ => {
+                if data_type.starts_with("_NOPTR_") {
+                    (&data_type[7..data_type.len()]).to_string()
+                } else {
+                    format!("{}*", data_type)
+                }
+            }
         }
     }
 

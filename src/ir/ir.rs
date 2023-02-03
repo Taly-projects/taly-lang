@@ -125,7 +125,7 @@ impl IRGenerator {
                             node.convert(Node::FunctionCall { 
                                 name: node.convert("sizeof".to_string()), 
                                 parameters: vec![
-                                    node.convert(Node::Value(ValueNode::Type(parent_type.data.clone())))
+                                    node.convert(Node::Value(ValueNode::Type(format!("_NOPTR_{}", parent_type.data.clone()))))
                                 ] 
                             })
                         ] 
