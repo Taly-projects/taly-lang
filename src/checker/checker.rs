@@ -303,7 +303,7 @@ impl Checker {
         }
     }
 
-    fn check_access(&mut self, selected: &MutRef<Scope>) -> Result<(), CheckerError> {
+    fn check_access_modifier(&mut self, selected: &MutRef<Scope>) -> Result<(), CheckerError> {
         let selected = selected.get();
         
         if self.trace.follows_path(&selected.trace) {
@@ -320,6 +320,148 @@ impl Checker {
         } else {
             println!("\n\n{:?}\n{:?}\n\n", selected.trace, self.trace);
             todo!("error not accessible (no access {:#?})", selected.scope)
+        }
+    }
+
+    fn check_assignment(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::BinaryOperation { lhs, operator, rhs } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_lhs = self.check_node(*lhs.clone())?;
+        let checked_rhs = self.check_node(*rhs.clone())?;
+        
+        if let Some(selected) = checked_lhs.selected {
+            if let ScopeType::Variable { var_type, name, data_type, initialized } = &mut selected.get().scope {
+                if var_type.data == VarType::Constant && *initialized {
+                    return Err(CheckerError::CannotAssignToConstant(node.convert(()), selected.get().pos.convert(name.data.clone())));
+                }
+
+                if let Some(data_type) = data_type {
+                    self.check_type(rhs.convert(()), data_type.clone(), checked_rhs.data_type)?;
+
+                    *initialized = true;
+                    return Ok(NodeInfo {
+                        checked: node.convert(Node::BinaryOperation { 
+                            lhs: Box::new(checked_lhs.checked), 
+                            operator, 
+                            rhs: Box::new(checked_rhs.checked)
+                        }),
+                        data_type: Some(data_type.clone()),
+                        selected: None
+                    });
+                } else if let Some(rhs_type) = checked_rhs.data_type {
+                    self.inferred.push((selected.get().trace.clone(), rhs_type.clone()));
+                    *data_type = Some(rhs_type.clone());
+                    *initialized = true;
+                    return Ok(NodeInfo {
+                        checked: node.convert(Node::BinaryOperation { 
+                            lhs: Box::new(checked_lhs.checked), 
+                            operator, 
+                            rhs: Box::new(checked_rhs.checked)
+                        }),
+                        data_type: Some(rhs_type.clone()),
+                        selected: None
+                    });
+                } else {
+                    return Err(CheckerError::CannotInferType(selected.get().pos.convert(name.data.clone())));
+                }
+            } else {
+                return Err(CheckerError::CannotAssignToConstantExpression(node.convert(())));
+            }
+        } else {
+            return Err(CheckerError::CannotAssignToConstantExpression(node.convert(())));
+        }
+    }
+
+    fn check_access(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::BinaryOperation { lhs, operator, rhs } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_lhs = self.check_node(*lhs.clone())?;
+        if let Some(selected) = checked_lhs.selected {
+            let prev_scope = self.scope.clone();
+            let prev_trace = self.trace.clone();
+            let prev_selected = self.selected;
+            self.scope = selected;
+            self.trace = Trace::full();
+            self.selected = true;
+            
+            let base_scope_changed = if self.base_scope.is_none() {
+                self.base_scope = Some(prev_scope.clone());
+                true
+            } else {
+                false
+            };
+
+            let checked_rhs = self.check_node(*rhs.clone())?;
+            
+            self.scope = prev_scope;
+            self.trace = prev_trace;
+            self.selected = prev_selected;
+
+            if base_scope_changed {
+                self.base_scope = None;
+            }
+
+            if let Some(selected_rhs) = &checked_rhs.selected {
+                self.check_access_modifier(selected_rhs)?;
+            }
+
+            return Ok(NodeInfo {
+                checked: node.convert(Node::BinaryOperation { 
+                    lhs: Box::new(checked_lhs.checked), 
+                    operator, 
+                    rhs: Box::new(checked_rhs.checked) 
+                }),
+                data_type: checked_rhs.data_type,
+                selected: checked_rhs.selected
+            })
+        } else if let Some(data_type) = checked_lhs.data_type {
+            if let Some(class) = self.scope.get().get_class(self.trace.clone(), data_type.data.clone()) {
+                let prev_scope = self.scope.clone();
+                let prev_trace = self.trace.clone();
+                let prev_selected = self.selected;
+                self.scope = class;
+                self.trace = Trace::full();
+                self.selected = true;
+                
+                let base_scope_changed = if self.base_scope.is_none() {
+                    self.base_scope = Some(prev_scope.clone());
+                    true
+                } else {
+                    false
+                };
+
+                let checked_rhs = self.check_node(*rhs.clone())?;
+                
+                self.scope = prev_scope;
+                self.trace = prev_trace;
+                self.selected = prev_selected;
+
+                if base_scope_changed {
+                    self.base_scope = None;
+                }
+
+                if let Some(selected_rhs) = &checked_rhs.selected {
+                    self.check_access_modifier(selected_rhs)?;
+                }
+
+                return Ok(NodeInfo {
+                    checked: node.convert(Node::BinaryOperation { 
+                        lhs: Box::new(checked_lhs.checked), 
+                        operator, 
+                        rhs: Box::new(checked_rhs.checked) 
+                    }),
+                    data_type: checked_rhs.data_type,
+                    selected: checked_rhs.selected
+                })
+            } else {
+                todo!("Could not find class")
+            }
+        } else {
+            todo!("Error nothing selected!")
         }
     }
 
@@ -354,138 +496,8 @@ impl Checker {
                 }
                 
             }
-            Operator::Assign => {
-                let checked_lhs = self.check_node(*lhs.clone())?;
-                let checked_rhs = self.check_node(*rhs.clone())?;
-                
-                if let Some(selected) = checked_lhs.selected {
-                    if let ScopeType::Variable { var_type, name, data_type, initialized } = &mut selected.get().scope {
-                        if var_type.data == VarType::Constant && *initialized {
-                            return Err(CheckerError::CannotAssignToConstant(node.convert(()), selected.get().pos.convert(name.data.clone())));
-                        }
-
-                        if let Some(data_type) = data_type {
-                            self.check_type(rhs.convert(()), data_type.clone(), checked_rhs.data_type)?;
-
-                            *initialized = true;
-                            return Ok(NodeInfo {
-                                checked: node.convert(Node::BinaryOperation { 
-                                    lhs: Box::new(checked_lhs.checked), 
-                                    operator, 
-                                    rhs: Box::new(checked_rhs.checked)
-                                }),
-                                data_type: Some(data_type.clone()),
-                                selected: None
-                            });
-                        } else if let Some(rhs_type) = checked_rhs.data_type {
-                            self.inferred.push((selected.get().trace.clone(), rhs_type.clone()));
-                            *data_type = Some(rhs_type.clone());
-                            *initialized = true;
-                            return Ok(NodeInfo {
-                                checked: node.convert(Node::BinaryOperation { 
-                                    lhs: Box::new(checked_lhs.checked), 
-                                    operator, 
-                                    rhs: Box::new(checked_rhs.checked)
-                                }),
-                                data_type: Some(rhs_type.clone()),
-                                selected: None
-                            });
-                        } else {
-                            return Err(CheckerError::CannotInferType(selected.get().pos.convert(name.data.clone())));
-                        }
-                    } else {
-                        return Err(CheckerError::CannotAssignToConstantExpression(node.convert(())));
-                    }
-                } else {
-                    return Err(CheckerError::CannotAssignToConstantExpression(node.convert(())));
-                }
-            },
-            Operator::Access => {
-                let checked_lhs = self.check_node(*lhs.clone())?;
-                if let Some(selected) = checked_lhs.selected {
-                    let prev_scope = self.scope.clone();
-                    let prev_trace = self.trace.clone();
-                    let prev_selected = self.selected;
-                    self.scope = selected;
-                    self.trace = Trace::full();
-                    self.selected = true;
-                    
-                    let base_scope_changed = if self.base_scope.is_none() {
-                        self.base_scope = Some(prev_scope.clone());
-                        true
-                    } else {
-                        false
-                    };
-
-                    let checked_rhs = self.check_node(*rhs.clone())?;
-                    
-                    self.scope = prev_scope;
-                    self.trace = prev_trace;
-                    self.selected = prev_selected;
-
-                    if base_scope_changed {
-                        self.base_scope = None;
-                    }
-
-                    if let Some(selected_rhs) = &checked_rhs.selected {
-                        self.check_access(selected_rhs)?;
-                    }
-
-                    return Ok(NodeInfo {
-                        checked: node.convert(Node::BinaryOperation { 
-                            lhs: Box::new(checked_lhs.checked), 
-                            operator, 
-                            rhs: Box::new(checked_rhs.checked) 
-                        }),
-                        data_type: checked_rhs.data_type,
-                        selected: checked_rhs.selected
-                    })
-                } else if let Some(data_type) = checked_lhs.data_type {
-                    if let Some(class) = self.scope.get().get_class(self.trace.clone(), data_type.data.clone()) {
-                        let prev_scope = self.scope.clone();
-                        let prev_trace = self.trace.clone();
-                        let prev_selected = self.selected;
-                        self.scope = class;
-                        self.trace = Trace::full();
-                        self.selected = true;
-                        
-                        let base_scope_changed = if self.base_scope.is_none() {
-                            self.base_scope = Some(prev_scope.clone());
-                            true
-                        } else {
-                            false
-                        };
-
-                        let checked_rhs = self.check_node(*rhs.clone())?;
-                        
-                        self.scope = prev_scope;
-                        self.trace = prev_trace;
-                        self.selected = prev_selected;
-
-                        if base_scope_changed {
-                            self.base_scope = None;
-                        }
-
-                        if let Some(selected_rhs) = &checked_rhs.selected {
-                            self.check_access(selected_rhs)?;
-                        }
-
-                        return Ok(NodeInfo {
-                            checked: node.convert(Node::BinaryOperation { 
-                                lhs: Box::new(checked_lhs.checked), 
-                                operator, 
-                                rhs: Box::new(checked_rhs.checked) 
-                            }),
-                            data_type: checked_rhs.data_type,
-                            selected: checked_rhs.selected
-                        })
-                    } else {
-                        todo!("Could not find class")
-                    }
-                } else {
-                    todo!("Error nothing selected!")
-                }
-            }
+            Operator::Assign => self.check_assignment(node),
+            Operator::Access => self.check_access(node)
         }
     }
 

@@ -1,13 +1,9 @@
-space Math
-    pub fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
-
-class I32
-    var inner: c_int
+pub class I32
+    pub var inner: c_int
 
     pub new create(value: c_int) =>
-        self.inner = Math.add(value, 1)
-    
-    pub fn BYE(): c_string => "BYE"
+        self.inner = value
 
 fn main() =>
-    const x = I32.create(1).BYE()
+    const x = I32.create(0)
+    x.inner.inner
