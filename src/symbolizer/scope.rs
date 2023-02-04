@@ -190,7 +190,7 @@ impl Scope {
                     return None;
                 }
             },
-            ScopeType::Space { children, .. } if !allow_fields => return Self::get_function_in_children(children, trace, name),
+            ScopeType::Space { children, .. } => return Self::get_function_in_children(children, trace, name),
             _ => return None
         }
 
