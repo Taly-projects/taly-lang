@@ -427,8 +427,8 @@ impl IRGenerator {
     fn generate_space_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
             Node::FunctionDefinition { constructor, .. } if !constructor => self.generate_function_definition(node, None),
-            Node::ClassDefinition { .. } => todo!("class inside space"),
-            Node::SpaceDefinition { .. } => todo!("space inside space"),
+            Node::ClassDefinition { .. } => self.generate_class_definition(node),
+            Node::SpaceDefinition { .. } => self.generate_space_definition(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }

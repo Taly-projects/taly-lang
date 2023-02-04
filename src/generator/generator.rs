@@ -262,15 +262,19 @@ impl Generator {
 
 
     fn generate_space_definition(&mut self, node: Positioned<Node>, file: &mut File) {
-        let Node::SpaceDefinition { name, body, .. } = node.data.clone() else {
+        let Node::SpaceDefinition { body, .. } = node.data.clone() else {
             unreachable!()
         };
 
         // Separate methods
         let mut methods = Vec::new();
+        let mut spaces = Vec::new();
+        let mut classes = Vec::new();
         for node in body.iter() {
             match node.data {
                 Node::FunctionDefinition { .. } => methods.push(node.clone()),
+                Node::SpaceDefinition { .. } => spaces.push(node.clone()),
+                Node::ClassDefinition { .. } => classes.push(node.clone()),
                 _ => unreachable!()
             }
         }
@@ -281,6 +285,14 @@ impl Generator {
             let fun_file = self.generate_root_function_definition(method.clone());
             file.header.push_str(&fun_file.header);
             file.src.push_str(&fun_file.src);
+        }
+
+        for class in classes.iter() {
+            self.generate_class_definition(class.clone(), file);
+        }
+
+        for space in spaces.iter() {
+            self.generate_space_definition(space.clone(), file);
         }
     }
 
