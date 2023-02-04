@@ -261,7 +261,7 @@ impl Generator {
     }
 
 
-    fn generate_space_definition(&mut self, node: Positioned<Node>, project: &mut Project) {
+    fn generate_space_definition(&mut self, node: Positioned<Node>, file: &mut File) {
         let Node::SpaceDefinition { name, body, .. } = node.data.clone() else {
             unreachable!()
         };
@@ -275,7 +275,7 @@ impl Generator {
             }
         }
 
-        let file = project.get_file(name.data.clone());
+        // let file = project.get_file(name.data.clone());
 
         for method in methods.iter() {
             let fun_file = self.generate_root_function_definition(method.clone());
@@ -296,7 +296,7 @@ impl Generator {
                     main_file.src.push_str(&file.src);
                 }
                 Node::ClassDefinition { .. } => self.generate_class_definition(node, project.get_file("main".to_string())),
-                Node::SpaceDefinition { .. } => self.generate_space_definition(node, &mut project),
+                Node::SpaceDefinition { .. } => self.generate_space_definition(node, project.get_file("main".to_string())),
                 _ => unreachable!()
             }
             self.advance();
