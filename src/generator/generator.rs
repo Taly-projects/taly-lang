@@ -327,7 +327,7 @@ impl Generator {
         }
 
         for file in project.files.iter_mut() {
-            file.header = format!("{}\n{}", include_buf, file.header);
+            file.header = format!("#ifndef TALY_GEN_C_{0}_H\n#define TALY_GEN_C_{0}_H\n\n{1}\n{2}#endif // TALY_GEN_C_{0}_H", file.name, include_buf, file.header);
             if !file.src.is_empty() {
                 file.src = format!("#include \"{}.h\"\n\n{}", file.name, file.src);
             }
