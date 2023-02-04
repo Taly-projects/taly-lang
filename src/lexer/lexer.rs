@@ -119,7 +119,7 @@ impl Lexer {
         let mut space_start_pos = self.pos.clone();
 
         loop {
-            let current = self.current();
+            let mut current = self.current();
 
             if current == ' ' {
                 space_count += 1;
@@ -176,6 +176,17 @@ impl Lexer {
                     tokens.push(Positioned::new(Token::NewLine, start, end));
                 },
                 '\t' => tokens.push(self.make_single(Token::Tab)),
+                '#' => {
+                    while current != '\n' && current != '\0' {
+                        self.advance();
+                        current = self.current();
+                    }
+                    let start = self.pos.clone();
+                    let mut end = self.pos.clone();
+                    end.advance(' ');
+                    tokens.push(Positioned::new(Token::NewLine, start, end));
+                    continue;
+                }
                 '\0' => break,
                 ' ' | '\r' => {
                     // Ignore
