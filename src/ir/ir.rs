@@ -95,7 +95,7 @@ impl IRGenerator {
         })])
     }
 
-    fn generate_function_definition(&mut self, node: Positioned<Node>, parent_type: Option<Positioned<String>>) -> Result<Vec<Positioned<Node>>, IRError> {
+    fn generate_function_definition(&mut self, node: Positioned<Node>, parent_type: Option<Positioned<String>>, root: bool) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::FunctionDefinition { name, external, constructor, mut parameters, mut return_type, mut body, access } = node.data.clone() else {
             unreachable!()
         };
@@ -135,6 +135,17 @@ impl IRGenerator {
                 new_body.append(&mut body);
                 new_body.push(node.convert(Node::Return(Some(Box::new(node.convert(Node::VariableCall("self".to_string())))))));
                 body = new_body;
+            }
+        } else if root && name.data == "main" {
+            if let Some(data_type) = &mut return_type {
+                if data_type.data == "I32" {
+                    *data_type = data_type.convert("c_int".to_string());
+                } else if data_type.data != "c_int" {
+                    return Err(IRError::MainFunctionShouldReturnCInt(data_type.convert(())));
+                }
+            } else {
+                return_type = Some(name.convert("c_int".to_string()));
+                body.push(name.convert(Node::Return(Some(Box::new(name.convert(Node::Value(ValueNode::Integer("0".to_string()))))))));
             }
         }
 
@@ -400,7 +411,7 @@ impl IRGenerator {
 
     fn generate_class_definition_body(&mut self, node: Positioned<Node>, parent_type: Positioned<String>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
-            Node::FunctionDefinition { .. } => self.generate_function_definition(node, Some(parent_type)),
+            Node::FunctionDefinition { .. } => self.generate_function_definition(node, Some(parent_type), false),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
@@ -426,7 +437,7 @@ impl IRGenerator {
 
     fn generate_space_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
-            Node::FunctionDefinition { constructor, .. } if !constructor => self.generate_function_definition(node, None),
+            Node::FunctionDefinition { constructor, .. } if !constructor => self.generate_function_definition(node, None, false),
             Node::ClassDefinition { .. } => self.generate_class_definition(node),
             Node::SpaceDefinition { .. } => self.generate_space_definition(node),
             Node::_Unchecked(_) => Ok(vec![node]),
@@ -442,7 +453,7 @@ impl IRGenerator {
 
         while let Some(current) = self.current() {
             match current.data {
-                Node::FunctionDefinition { constructor, .. } if !constructor => output.ast.append(&mut self.generate_function_definition(current, None)?),
+                Node::FunctionDefinition { constructor, .. } if !constructor => output.ast.append(&mut self.generate_function_definition(current, None, true)?),
                 Node::ClassDefinition { .. } => output.ast.append(&mut self.generate_class_definition(current)?),
                 Node::SpaceDefinition { .. } => output.ast.append(&mut self.generate_space_definition(current)?),
                 Node::_Unchecked(_) => output.ast.push(current),

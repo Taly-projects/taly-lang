@@ -12,6 +12,7 @@ pub enum IRError {
     DestructorShouldNotReturnAnything(Positioned<()>),
     DestructorShouldNotHaveParameters(Positioned<()>),
     DestructorShouldNotBeConstructor(Positioned<()>),
+    MainFunctionShouldReturnCInt(Positioned<()>)
 }
 
 impl IRError {
@@ -57,6 +58,11 @@ impl IRError {
             IRError::DestructorShouldNotBeConstructor(node) => {
                 ErrorFormat::new(ErrorType::Error)
                     .add_message(format!("Destructor should not be constructor"), Some(node.clone()))
+                    .set_step("IR Generator".to_string()).print(src);  
+            },
+            IRError::MainFunctionShouldReturnCInt(node) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("The main function should return I32 or c_int or nothing!"), Some(node.clone()))
                     .set_step("IR Generator".to_string()).print(src);  
             },
         }
