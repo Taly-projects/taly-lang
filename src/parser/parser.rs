@@ -173,6 +173,12 @@ impl Parser {
             Token::Plus => self.parse_unary(current.convert(Operator::Add)),
             Token::Dash => self.parse_unary(current.convert(Operator::Subtract)),
             Token::Keyword(Keyword::Not) => self.parse_unary(current.convert(Operator::BooleanNot)),
+            Token::LeftParenthesis => {
+                self.advance();
+                let expr = self.parse_expr()?;
+                self.expect_token(Token::RightParenthesis)?;
+                Ok(expr)
+            }
             _ => Err(ParserError::UnexpectedToken(current, Some("Expression".to_string())))
         }
     }
@@ -559,7 +565,8 @@ impl Parser {
             Token::Identifier(_) |
             Token::Plus |
             Token::Dash |
-            Token::Keyword(Keyword::Not) => self.parse_expr().map(|x| Some(x)),
+            Token::Keyword(Keyword::Not) |
+            Token::LeftParenthesis => self.parse_expr().map(|x| Some(x)),
             Token::Keyword(keyword) => self.handle_keyword(current.convert(keyword)).map(|x| Some(x)),
             Token::NewLine | Token::Tab => {
                 self.advance(); 
