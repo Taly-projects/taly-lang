@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, util::position::Positioned, parser::node::{Node, Operator}};
+use crate::{ir::output::IROutput, util::position::Positioned, parser::node::{Node, Operator, ElifBranch}};
 
 pub struct PostProcessor {
     ir_output: IROutput,
@@ -164,6 +164,46 @@ impl PostProcessor {
         })
     }
 
+    fn process_if_statement(&mut self, node: Positioned<Node>) -> Positioned<Node> {
+        let Node::IfStatement { condition, body, elif_branches, else_body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let processed_condition = self.process_node(*condition, None);
+
+        let mut processed_body = Vec::new();
+        for node in body {
+            processed_body.push(self.process_node(node, None));
+        }
+
+        let mut processed_elif_branches = Vec::new();
+        for elif_branch in elif_branches {
+            let processed_condition = self.process_node(elif_branch.condition, None);
+    
+            let mut processed_body = Vec::new();
+            for node in elif_branch.body {
+                processed_body.push(self.process_node(node, None));
+            }
+
+            processed_elif_branches.push(ElifBranch {
+                condition: processed_condition,
+                body: processed_body
+            });
+        }
+
+        let mut processed_else_body = Vec::new();
+        for node in else_body {
+            processed_else_body.push(self.process_node(node, None));
+        }
+
+        node.convert(Node::IfStatement { 
+            condition: Box::new(processed_condition), 
+            body: processed_body, 
+            elif_branches: processed_elif_branches, 
+            else_body: processed_else_body 
+        })
+    }
+
     fn process_node(&mut self, node: Positioned<Node>, new_name: Option<String>) -> Positioned<Node> {
         match node.data.clone() {
             Node::Value(_) => node,
@@ -178,6 +218,7 @@ impl PostProcessor {
             Node::Return(_) => self.process_return(node),
             Node::ClassDefinition { .. } => self.process_class_definition(node),
             Node::SpaceDefinition { .. } => self.process_space_definition(node),
+            Node::IfStatement { .. } => self.process_if_statement(node),
             Node::_Unchecked(inner) => self.process_node(*inner, None),
             Node::_Optional(inner) => self.process_node(*inner, None),
             Node::_Renamed { name, node } => self.process_node(*node, Some(name))

@@ -10,10 +10,9 @@ pub space Number
         pub fn add_one() =>
             self.inner = self.inner + 1
 
-pub space Math
-
-    pub fn add(lhs: c_int, rhs: c_int): c_int => lhs + rhs
-
 fn main() =>
-    const y = Math.add(2, 1)
-    const x = Number.I32.create(y)
+    const y = (2 + 3) * 5
+    if y > 5 then
+        const x = Number.I32.create(0)
+    end
+    

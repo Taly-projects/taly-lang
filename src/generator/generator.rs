@@ -173,6 +173,72 @@ impl Generator {
         (true, buf)
     }
 
+    fn generate_if_statement(&mut self, node: Positioned<Node>) -> (bool, String) {
+        let Node::IfStatement { condition, body, elif_branches, else_body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+        buf.push_str("if (");
+        buf.push_str(&self.generate_current(*condition).1);
+        buf.push_str(") { ");
+        for node in body.clone() {
+            let node_str = self.generate_current(node);
+            for line in node_str.1.lines() {
+                buf.push_str("\n\t");
+                buf.push_str(line);
+            }
+            if node_str.0 {
+                buf.push(';');
+            }
+        }
+        if !body.is_empty() {
+            buf.push('\n');
+        }
+        buf.push_str("} ");
+
+        for elif_branch in elif_branches {
+            buf.push_str("else if (");
+            buf.push_str(&self.generate_current(elif_branch.condition).1);
+            buf.push_str(") { ");
+            for node in elif_branch.body.clone() {
+                let node_str = self.generate_current(node);
+                for line in node_str.1.lines() {
+                    buf.push_str("\n\t");
+                    buf.push_str(line);
+                }
+                if node_str.0 {
+                    buf.push(';');
+                }
+            }
+            if !elif_branch.body.is_empty() {
+                buf.push('\n');
+            }
+            buf.push('}');
+        }
+
+        if !else_body.is_empty() {
+            buf.push_str("else {");
+            for node in else_body.clone() {
+                let node_str = self.generate_current(node);
+                for line in node_str.1.lines() {
+                    buf.push_str("\n\t");
+                    buf.push_str(line);
+                }
+                if node_str.0 {
+                    buf.push(';');
+                }
+            }
+            if !else_body.is_empty() {
+                buf.push('\n');
+            }
+            buf.push_str("} ");
+
+        }
+
+        (false, buf)
+    }
+
     fn generate_current(&mut self, node: Positioned<Node>) -> (bool, String) {
         match node.data {
             Node::Value(_) => self.generate_value(node),
@@ -182,6 +248,7 @@ impl Generator {
             Node::BinaryOperation { .. } => self.generate_binary_operation(node),
             Node::UnaryOperation { .. } => self.generate_unary_operation(node),
             Node::Return(_) => self.generate_return(node),
+            Node::IfStatement { .. } => self.generate_if_statement(node),
             _ => unreachable!(),
         }
     }

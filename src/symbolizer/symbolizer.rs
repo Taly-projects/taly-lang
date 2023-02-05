@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType}};
+use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType, AccessModifier}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Symbolizer                                          //
@@ -188,6 +188,67 @@ impl Symbolizer {
         Ok(())
     }
 
+    fn symbolize_if_statement(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
+        let Node::IfStatement { body, elif_branches, else_body, .. } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Symbolize If
+        let if_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+            children: Vec::new() 
+        }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
+        
+        scope.get().add_child(if_scope);
+
+        let if_scope_ref = scope.get().get_last();
+
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in body {
+            self.symbolize_node(node, if_scope_ref.clone())?;
+            self.trace.index += 1;
+        }
+        self.trace = *self.trace.clone().parent.unwrap();
+        self.trace.index += 1;
+
+        // Symbolize Elif
+        for elif_branch in elif_branches {
+            let elif_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+                children: Vec::new() 
+            }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
+        
+            scope.get().add_child(elif_scope);
+    
+            let elif_scope_ref = scope.get().get_last();
+            
+            self.trace = Trace::new(0, self.trace.clone());
+            for node in elif_branch.body {
+                self.symbolize_node(node, elif_scope_ref.clone())?;
+                self.trace.index += 1;
+            }
+            self.trace = *self.trace.clone().parent.unwrap();
+            self.trace.index += 1;
+        }
+
+        // Symbolize Else
+        let else_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+            children: Vec::new() 
+        }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
+        
+        scope.get().add_child(else_scope);
+
+        let else_scope_ref = scope.get().get_last();
+
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in else_body {
+            self.symbolize_node(node, else_scope_ref.clone())?;
+            self.trace.index += 1;
+        }
+        self.trace = *self.trace.clone().parent.unwrap();
+        self.trace.index += 1;
+
+        Ok(())
+    }
+
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
@@ -195,6 +256,7 @@ impl Symbolizer {
             Node::VariableDefinition { .. } => self.symbolize_variable_definition(node, scope),
             Node::ClassDefinition { .. } => self.symbolize_class_definition(node, scope),
             Node::SpaceDefinition { .. } => self.symbolize_space_definition(node, scope),
+            Node::IfStatement { .. } => self.symbolize_if_statement(node, scope),
             Node::_Unchecked(inner) => self.symbolize_node(*inner, scope),
             _ => Ok(())
         }

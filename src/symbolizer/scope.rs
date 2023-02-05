@@ -32,6 +32,9 @@ pub enum ScopeType {
         name: Positioned<String>,
         children: Vec<Scope>,
         linked_class: bool
+    },
+    Branch {
+        children: Vec<Scope>
     }
 }
 
@@ -75,6 +78,7 @@ impl Scope {
             ScopeType::Variable { name, data_type, .. } => format!("Variable({:?}, {})", data_type, name.data),
             ScopeType::Class { name, .. } => format!("Class({})", name.data),
             ScopeType::Space { name, .. } => format!("Space({})", name.data),
+            ScopeType::Branch { .. } => "Branch".to_string()
         }
     }
 
@@ -82,7 +86,7 @@ impl Scope {
         let mut buf = String::new();
         if let Some(parent) = &self.parent {
             buf.push_str(&parent.get().process_name());
-            if !self.is_root() && !parent.get().is_root() {
+            if !self.is_root() && !parent.get().is_root() && !self.is_branch() && !parent.get().is_branch() {
                 buf.push('_');
             }
         } 
@@ -111,12 +115,20 @@ impl Scope {
         }
     }
 
+    pub fn is_branch(&self) -> bool {
+        match self.scope {
+            ScopeType::Branch { .. } => true,
+            _ => false
+        }
+    }
+
     pub fn add_child(&mut self, scope: Scope) {
         match &mut self.scope {
             ScopeType::Root { children } |
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
-            ScopeType::Space { children, .. } => {
+            ScopeType::Space { children, .. } |
+            ScopeType::Branch { children } => {
                 children.push(scope);
             }
             ScopeType::Variable { .. } => {
@@ -130,7 +142,8 @@ impl Scope {
             ScopeType::Root { children } |
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
-            ScopeType::Space { children, .. } => {
+            ScopeType::Space { children, .. } |
+            ScopeType::Branch { children } => {
                 MutRef::new(children.last_mut().unwrap())
             }
             ScopeType::Variable { .. } => {
@@ -138,6 +151,21 @@ impl Scope {
             }
         }
     }
+
+    pub fn get_child(&mut self, index: usize) -> MutRef<Scope> {
+        match &mut self.scope {
+            ScopeType::Root { children } |
+            ScopeType::Function { children, .. } |
+            ScopeType::Class { children, .. } |
+            ScopeType::Space { children, .. } |
+            ScopeType::Branch { children } => {
+                MutRef::new(children.get_mut(index).unwrap())
+            }
+            ScopeType::Variable { .. } => {
+                panic!("cannot have children here!")
+            }
+        }
+    } 
 
     fn get_function_in_children(children: &mut Vec<Scope>, trace: Trace, name: String) -> Option<MutRef<Scope>> {
         for child in children.iter_mut() {
@@ -246,6 +274,7 @@ impl Scope {
                 }
             },
             ScopeType::Class { children, .. } if allow_fields => Self::get_variable_in_children(children, trace, name),
+            ScopeType::Branch { children} => Self::get_variable_in_children(children, trace, name),
             _ => None
         }
     }
@@ -279,7 +308,7 @@ impl Scope {
                 }
                 None
             },
-            ScopeType::Variable { .. } => None,
+            _ => None,
         }
     }
 
@@ -313,7 +342,7 @@ impl Scope {
                 }
                 None
             },
-            ScopeType::Variable { .. } => None,
+            _ => None,
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType, AccessModifier}, checker::error::CheckerError};
+use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType, AccessModifier, ElifBranch}, checker::error::CheckerError};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Node Info                                           //
@@ -255,7 +255,7 @@ impl Checker {
 
         // Find scope-symbol
         let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.data.clone(), true) else {
-            unreachable!()
+            unreachable!("{}", name.data)
         };
 
         let ScopeType::Variable { data_type: def_data_type, .. } = &mut variable.get().scope else {
@@ -716,6 +716,102 @@ impl Checker {
             function_called: None
         })
     }
+
+    fn check_if_statement(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::IfStatement { condition, body, elif_branches, else_body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_condition = self.check_node(*condition)?;
+        self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type)?;
+
+        let mut checked_body = Vec::new();
+        
+        // Enter Scope
+        self.scope = self.scope.get().get_child(self.trace.index);
+
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in body {
+            let checked_node = self.check_node(node)?;
+            checked_body.push(checked_node.checked);
+            self.trace.index += 1;
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+        self.trace.index += 1;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
+        }
+
+        let mut checked_elif_branches = Vec::new();
+        for elif_branch in elif_branches {
+            let checked_condition = self.check_node(elif_branch.condition)?;
+            self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type)?;
+            
+            // Enter Scope
+            self.scope = self.scope.get().get_child(self.trace.index);
+
+            let mut checked_body = Vec::new();
+            self.trace = Trace::new(0, self.trace.clone());
+            for node in elif_branch.body {
+                let checked_node = self.check_node(node)?;
+                checked_body.push(checked_node.checked);
+                self.trace.index += 1;
+            }
+            let parent_trace = *self.trace.clone().parent.unwrap();
+            self.trace = parent_trace;
+            self.trace.index += 1;
+
+            // Exit Scope
+            if let Some(parent) = self.scope.get().parent.clone() {
+                self.scope = parent;
+            } else {
+                unreachable!("Not parent after entering function!");
+            }
+
+            checked_elif_branches.push(ElifBranch {
+                condition: checked_condition.checked,
+                body: checked_body
+            })
+        }
+
+        // Enter Scope
+        self.scope = self.scope.get().get_child(self.trace.index);
+
+        let mut checked_else_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in else_body {
+            let checked_node = self.check_node(node)?;
+            checked_else_body.push(checked_node.checked);
+            self.trace.index += 1;
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+        self.trace.index += 1;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
+        }
+
+        Ok(NodeInfo { 
+            checked: node.convert(Node::IfStatement { 
+                condition: Box::new(checked_condition.checked), 
+                body: checked_body, 
+                elif_branches: checked_elif_branches, 
+                else_body: checked_else_body 
+            }), 
+            data_type: None, 
+            selected: None, 
+            function_called: None 
+        })
+    }
  
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
@@ -730,6 +826,7 @@ impl Checker {
             Node::Return(_) => self.check_return(node),
             Node::ClassDefinition { .. } => self.check_class_definition(node),
             Node::SpaceDefinition { .. } => self.check_space_definition(node),
+            Node::IfStatement { .. } => self.check_if_statement(node),
             Node::_Unchecked(inner) => Ok(NodeInfo { 
                 checked: *inner, 
                 data_type: None, 
@@ -746,7 +843,8 @@ impl Checker {
             ScopeType::Root { children } |
             ScopeType::Class { children, .. } |
             ScopeType::Function { children, .. } |
-            ScopeType::Space {children, .. } => {
+            ScopeType::Space {children, .. } |
+            ScopeType::Branch { children } => {
                 for scope in children.iter() {
                     self.check_inference(scope)?;
                 }

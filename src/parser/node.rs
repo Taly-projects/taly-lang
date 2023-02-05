@@ -49,6 +49,12 @@ pub enum Node {
         body: Vec<Positioned<Node>>,
         access: Option<Positioned<AccessModifier>>
     },
+    IfStatement {
+        condition: Box<Positioned<Node>>,
+        body: Vec<Positioned<Node>>,
+        elif_branches: Vec<ElifBranch>,
+        else_body: Vec<Positioned<Node>>
+    },
     // Compiler Specific Annotation
     _Unchecked(Box<Positioned<Node>>),
     _Optional(Box<Positioned<Node>>),
@@ -105,6 +111,7 @@ impl Node {
             Node::Return(_) => format!("Return"),
             Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
             Node::SpaceDefinition { name, .. } => format!("Space({})", name.data),
+            Node::IfStatement { .. } => format!("If"),
             Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
             Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),
@@ -206,4 +213,16 @@ pub enum AccessModifier {
     Protected,
     Locked,
     Guarded
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                           Elif Branch                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+#[derive(Clone, Debug)]
+pub struct ElifBranch {
+    pub condition: Positioned<Node>,
+    pub body: Vec<Positioned<Node>>
 }

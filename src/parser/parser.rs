@@ -1,4 +1,4 @@
-use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator, AccessModifier}}};
+use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator, AccessModifier, ElifBranch}}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Parser                                             //
@@ -518,6 +518,102 @@ impl Parser {
         }, start, end))
     }
 
+    fn parse_if_statement(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let mut condition = self.parse_expr()?;
+        self.expect_token(Token::Keyword(Keyword::Then))?;
+        self.advance();
+        let mut body = Vec::new();
+        let mut else_block = false;
+
+        let mut if_condition = None;
+        let mut if_body = Vec::new();
+        let mut else_body = Vec::new();
+
+        let mut branches = Vec::new();
+        let end;
+
+        let mut current = self.expect_current(Some("end".to_string()))?;
+        loop {
+            match current.data {
+                Token::Keyword(Keyword::End) => {
+                    if else_block {
+                        else_body = body;
+                    } else if if_condition.is_none() {
+                        if_condition = Some(condition.clone());
+                        if_body = body;
+                    } else {
+                        branches.push(ElifBranch {
+                            condition: condition.clone(),
+                            body,
+                        });
+                    }
+
+                    end = current.end.clone();
+                    self.advance();
+
+                    break
+                }, 
+                Token::Keyword(Keyword::Elif) => {
+                    if else_block {
+                        return Err(ParserError::UnexpectedToken(current, None));
+                    }
+
+                    // Push Branch
+                    if if_condition.is_none() {
+                        if_condition = Some(condition.clone());
+                        if_body = body;
+                    } else {
+                        branches.push(ElifBranch {
+                            condition: condition.clone(),
+                            body,
+                        });
+                    }
+
+                    // Get condition
+                    condition = self.parse_expr()?;
+                    self.expect_token(Token::Keyword(Keyword::Then))?;
+                    self.advance();
+
+                    body = Vec::new();
+                }
+                Token::Keyword(Keyword::Else) => {
+                    if else_block {
+                        return Err(ParserError::UnexpectedToken(current, None));
+                    }
+
+                    // Push Branch
+                    if if_condition.is_none() {
+                        if_condition = Some(condition.clone());
+                        if_body = body;
+                    } else {
+                        branches.push(ElifBranch {
+                            condition: condition.clone(),
+                            body,
+                        });
+                    }
+
+                    body = Vec::new();
+
+                    else_block = true;
+                }
+                _ => {
+                    if let Some(node) = self.parse_current()? {
+                        body.push(node)
+                    } 
+                }
+            }
+            current = self.expect_current(Some("end".to_string()))?;
+        }
+
+        Ok(Positioned::new(Node::IfStatement { 
+            condition: Box::new(if_condition.unwrap()), 
+            body: if_body, 
+            elif_branches: branches, 
+            else_body 
+        }, start, end))
+    }
+
     fn handle_access(&mut self, access: Positioned<AccessModifier>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let current = self.expect_current(Some("Function, Class, Space, ..".to_string()))?;
@@ -551,6 +647,7 @@ impl Parser {
             Keyword::Prot => self.handle_access(keyword.convert(AccessModifier::Protected)),
             Keyword::Lock => self.handle_access(keyword.convert(AccessModifier::Locked)),
             Keyword::Guard => self.handle_access(keyword.convert(AccessModifier::Guarded)),
+            Keyword::If => self.parse_if_statement(keyword.start),
             _ => Err(ParserError::UnexpectedToken(self.current().unwrap(), None))
         }
     }
