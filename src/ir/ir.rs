@@ -301,7 +301,23 @@ impl IRGenerator {
             }
         } else if operator.data == Operator::BooleanXor {
             // lhs xor rhs => lhs || rhs && !(lhs && rhs)
-            todo!("Need Not operator!")
+            // todo!("Need Not operator!")
+            pre.push(node.convert(Node::BinaryOperation { 
+                lhs: Box::new(node.convert(Node::BinaryOperation { 
+                    lhs: Box::new(lhs_last.clone()), 
+                    operator: operator.convert(Operator::BooleanOr), 
+                    rhs: Box::new(rhs_last.clone()) 
+                })), 
+                operator: operator.convert(Operator::BooleanAnd), 
+                rhs: Box::new(node.convert(Node::UnaryOperation { 
+                    operator: operator.convert(Operator::BooleanNot), 
+                    value: Box::new(node.convert(Node::BinaryOperation { 
+                        lhs: Box::new(lhs_last.clone()), 
+                        operator: operator.convert(Operator::BooleanAnd), 
+                        rhs: Box::new(rhs_last.clone()) 
+                    })) 
+                })) 
+            }))
         } else {
             pre.push(node.convert(Node::BinaryOperation { 
                 lhs: Box::new(lhs_last), 
