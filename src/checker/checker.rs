@@ -549,7 +549,7 @@ impl Checker {
             unreachable!()
         };
 
-        let checked_value = self.check_value_node(*value)?;
+        let checked_value = self.check_node(*value)?;
 
         Ok(NodeInfo { 
             checked: node.convert(Node::UnaryOperation { 
