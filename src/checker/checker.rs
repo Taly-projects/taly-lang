@@ -184,6 +184,7 @@ impl Checker {
                 processed_name = function.get().process_name();
                 function
             } else {
+                println!("a: {:#?}", self.scope.get());
                 return Err(CheckerError::SymbolNotFound(name));
             }
         } else {
@@ -191,6 +192,7 @@ impl Checker {
                 processed_name = function.get().process_name();
                 function
             } else {
+                println!("b: {:#?}", self.scope.get().scope);
                 return Err(CheckerError::SymbolNotFound(name));
             }
         };
@@ -537,6 +539,33 @@ impl Checker {
                     (_, _) => Err(CheckerError::UnexpectedType(lhs.convert(None), None)),
                 }
                 
+            },
+            Operator::Equal |
+            Operator::NotEqual |
+            Operator::Less |
+            Operator::LessOrEqual |
+            Operator::Greater |
+            Operator::GreaterOrEqual => {
+                let checked_lhs = self.check_node(*lhs.clone())?;
+                let checked_rhs = self.check_node(*rhs.clone())?;
+
+                match (checked_lhs.data_type, checked_rhs.data_type) {
+                    (Some(lhs_type), Some(rhs_type)) => {
+                        self.check_type(rhs.convert(()), lhs_type.clone(), Some(rhs_type))?;
+                        return Ok(NodeInfo {
+                            checked: node.convert(Node::BinaryOperation { 
+                                lhs: Box::new(checked_lhs.checked), 
+                                operator, 
+                                rhs: Box::new(checked_rhs.checked)
+                            }),
+                            data_type: Some(node.convert("c_int".to_string())),
+                            selected: None,
+                            function_called: None
+                        })
+                    }
+                    (Some(_), _) => Err(CheckerError::UnexpectedType(rhs.convert(None), None)),
+                    (_, _) => Err(CheckerError::UnexpectedType(lhs.convert(None), None)),
+                }
             }
             Operator::Assign => self.check_assignment(node),
             Operator::Access => self.check_access(node),

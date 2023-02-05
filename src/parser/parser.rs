@@ -258,6 +258,35 @@ impl Parser {
 
         while let Some(current) = self.current() {
             let operator = match current.data {
+                Token::DoubleEqual => current.convert(Operator::Equal), 
+                Token::ExclamationMarkEqual => current.convert(Operator::NotEqual), 
+                Token::LeftAngle => current.convert(Operator::Less), 
+                Token::LeftAngleEqual => current.convert(Operator::LessOrEqual), 
+                Token::RightAngle => current.convert(Operator::Greater), 
+                Token::RightAngleEqual => current.convert(Operator::GreaterOrEqual), 
+                _ => break
+            };
+            self.advance();
+
+            let right = self.parse_expr3()?;
+            
+            let start = left.start.clone();
+            let end = right.end.clone();
+            left = Positioned::new(Node::BinaryOperation { 
+                lhs: Box::new(left), 
+                operator, 
+                rhs: Box::new(right) 
+            }, start, end);
+        }
+
+        Ok(left)
+    }
+
+    fn parse_expr5(&mut self) -> Result<Positioned<Node>, ParserError> {
+        let mut left = self.parse_expr4()?;
+
+        while let Some(current) = self.current() {
+            let operator = match current.data {
                 Token::Keyword(Keyword::And) => current.convert(Operator::BooleanAnd), 
                 Token::Keyword(Keyword::Or) => current.convert(Operator::BooleanOr), 
                 Token::Keyword(Keyword::Xor) => current.convert(Operator::BooleanXor), 
@@ -279,8 +308,8 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_expr5(&mut self) -> Result<Positioned<Node>, ParserError> {
-        let mut left = self.parse_expr4()?;
+    fn parse_expr6(&mut self) -> Result<Positioned<Node>, ParserError> {
+        let mut left = self.parse_expr5()?;
 
         while let Some(current) = self.current() {
             let operator = match current.data {
@@ -289,7 +318,7 @@ impl Parser {
             };
             self.advance();
 
-            let right = self.parse_expr5()?;
+            let right = self.parse_expr()?;
             
             let start = left.start.clone();
             let end = right.end.clone();
@@ -304,7 +333,7 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Result<Positioned<Node>, ParserError> {
-        self.parse_expr5()
+        self.parse_expr6()
     }
 
     fn parse_use(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {

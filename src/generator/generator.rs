@@ -114,6 +114,12 @@ impl Generator {
             Operator::Access => buf.push_str("->"),
             Operator::BooleanAnd => buf.push_str(" && "),
             Operator::BooleanOr => buf.push_str(" || "),
+            Operator::Equal => buf.push_str(" == "),
+            Operator::NotEqual => buf.push_str(" != "),
+            Operator::Less => buf.push_str(" < "),
+            Operator::LessOrEqual => buf.push_str(" <= "),
+            Operator::Greater => buf.push_str(" > "),
+            Operator::GreaterOrEqual => buf.push_str(" >= "),
             _ => unreachable!()
         }
         buf.push_str(&self.generate_current(*rhs).1);

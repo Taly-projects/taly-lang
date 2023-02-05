@@ -168,6 +168,7 @@ impl Scope {
             ScopeType::Root { children } => return Self::get_function_in_children(children, trace, name),
             ScopeType::Variable { data_type, .. } => {
                 if let Some(data_type) = data_type.clone() {
+                    println!("Looking for '{}'", data_type.data);
                     if let Some(class) = self.get_class(trace.clone(), data_type.data.clone()) {
                         return class.get().enter_function(trace, name, look_links, true);
                     } else {
@@ -287,6 +288,7 @@ impl Scope {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
+            println!("Looking for {}, Parent {:#?}", name, parent.get().short_name());
             if trace.full {
                 return parent.get().get_class(trace, name);
             } else {

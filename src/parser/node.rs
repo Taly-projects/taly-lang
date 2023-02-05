@@ -88,6 +88,12 @@ impl Node {
                 Operator::BooleanAnd => format!("BinaryOP(BooleanAnd)"),
                 Operator::BooleanOr => format!("BinaryOP(BooleanOr)"),
                 Operator::BooleanXor => format!("BinaryOP(BooleanXor)"),
+                Operator::Equal => format!("BinaryOP(Equal)"),
+                Operator::NotEqual => format!("BinaryOP(NotEqual)"),
+                Operator::Greater => format!("BinaryOP(Greater)"),
+                Operator::GreaterOrEqual => format!("BinaryOP(GreaterOREqual)"),
+                Operator::Less => format!("BinaryOP(Less)"),
+                Operator::LessOrEqual => format!("BinaryOP(LessOREqual)"),
                 _ => unreachable!()
             }
             Node::UnaryOperation { operator, .. } => match operator.data {
@@ -178,7 +184,13 @@ pub enum Operator {
     BooleanAnd,
     BooleanOr,
     BooleanXor,
-    BooleanNot
+    BooleanNot,
+    Equal,
+    NotEqual,
+    Greater,
+    GreaterOrEqual,
+    Less,
+    LessOrEqual
 }
 
 

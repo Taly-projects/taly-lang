@@ -17,11 +17,17 @@ pub enum Token {
     Colon,
     RightDoubleArrow,
     Equal,
+    DoubleEqual,
+    ExclamationMarkEqual,
     Plus,
     Dash,
     Star,
     Slash,
     Dot,
+    LeftAngle,
+    LeftAngleEqual,
+    RightAngle,
+    RightAngleEqual,
     // Formatting
     Tab,
     NewLine

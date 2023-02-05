@@ -161,7 +161,53 @@ impl Lexer {
                             end.advance('>');
                             tokens.push(Positioned::new(Token::RightDoubleArrow, start, end));
                         }
+                        '=' => {
+                            let start = self.pos.clone();
+                            self.advance();
+                            let mut end = self.pos.clone();
+                            end.advance('=');
+                            tokens.push(Positioned::new(Token::DoubleEqual, start, end));
+                        }
                         _ => tokens.push(self.make_single(Token::Equal))
+                    }
+                }
+                '<' => {
+                    let next = self.peek(1);
+                    match next {
+                        '=' => {
+                            let start = self.pos.clone();
+                            self.advance();
+                            let mut end = self.pos.clone();
+                            end.advance('=');
+                            tokens.push(Positioned::new(Token::LeftAngleEqual, start, end));
+                        }
+                        _ => tokens.push(self.make_single(Token::LeftAngle))
+                    }
+                }
+                '>' => {
+                    let next = self.peek(1);
+                    match next {
+                        '=' => {
+                            let start = self.pos.clone();
+                            self.advance();
+                            let mut end = self.pos.clone();
+                            end.advance('=');
+                            tokens.push(Positioned::new(Token::RightAngleEqual, start, end));
+                        }
+                        _ => tokens.push(self.make_single(Token::RightAngle))
+                    }
+                }
+                '!' => {
+                    let next = self.peek(1);
+                    match next {
+                        '=' => {
+                            let start = self.pos.clone();
+                            self.advance();
+                            let mut end = self.pos.clone();
+                            end.advance('=');
+                            tokens.push(Positioned::new(Token::ExclamationMarkEqual, start, end));
+                        }
+                        _ => return Err(LexerError::UnexpectedChar(self.make_single(current), Some("=".to_string())))
                     }
                 }
                 '+' => tokens.push(self.make_single(Token::Plus)),
