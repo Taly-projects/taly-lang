@@ -198,6 +198,7 @@ impl IRGenerator {
             Node::UnaryOperation { .. } => self.generate_unary_operator(node),
             Node::Return(_) => self.generate_return(node),
             Node::IfStatement { .. } => self.generate_if_statement(node),
+            Node::WhileLoop { .. } => self.generate_while_loop(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
@@ -525,6 +526,30 @@ impl IRGenerator {
             body: gen_body, 
             elif_branches: elif_branch_gen, 
             else_body: gen_else_body 
+        }));
+
+        Ok(pre)
+    }
+
+    fn generate_while_loop(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::WhileLoop { condition, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut pre = Vec::new();
+
+        let mut gen_condition = self.generate_expr(*condition)?;
+        let gen_condition_last = gen_condition.pop().unwrap();
+        pre.append(&mut gen_condition);
+
+        let mut gen_body = Vec::new();
+        for node in body {
+            gen_body.append(&mut self.generate_function_definition_body(node)?);
+        }
+
+        pre.push(node.convert(Node::WhileLoop { 
+            condition: Box::new(gen_condition_last), 
+            body: gen_body 
         }));
 
         Ok(pre)

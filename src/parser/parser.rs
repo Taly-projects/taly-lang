@@ -614,6 +614,29 @@ impl Parser {
         }, start, end))
     }
 
+    fn parse_while_loop(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let expr = self.parse_expr()?;
+        self.expect_token(Token::Keyword(Keyword::Do))?;
+        self.advance();
+
+        let mut body = Vec::new();
+        let mut current = self.expect_current(Some("end".to_string()))?;
+        while current.data != Token::Keyword(Keyword::End) {
+            if let Some(node) = self.parse_current()? {
+                body.push(node);
+            }
+            current = self.expect_current(Some("end".to_string()))?;
+        }
+        let end = current.end.clone();
+        self.advance();
+        
+        Ok(Positioned::new(Node::WhileLoop { 
+            condition: Box::new(expr), 
+            body 
+        }, start, end))
+    }
+
     fn handle_access(&mut self, access: Positioned<AccessModifier>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let current = self.expect_current(Some("Function, Class, Space, ..".to_string()))?;
@@ -648,6 +671,7 @@ impl Parser {
             Keyword::Lock => self.handle_access(keyword.convert(AccessModifier::Locked)),
             Keyword::Guard => self.handle_access(keyword.convert(AccessModifier::Guarded)),
             Keyword::If => self.parse_if_statement(keyword.start),
+            Keyword::While => self.parse_while_loop(keyword.start),
             _ => Err(ParserError::UnexpectedToken(self.current().unwrap(), None))
         }
     }

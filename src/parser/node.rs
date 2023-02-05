@@ -55,6 +55,10 @@ pub enum Node {
         elif_branches: Vec<ElifBranch>,
         else_body: Vec<Positioned<Node>>
     },
+    WhileLoop {
+        condition: Box<Positioned<Node>>,
+        body: Vec<Positioned<Node>>
+    },
     // Compiler Specific Annotation
     _Unchecked(Box<Positioned<Node>>),
     _Optional(Box<Positioned<Node>>),
@@ -112,6 +116,7 @@ impl Node {
             Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
             Node::SpaceDefinition { name, .. } => format!("Space({})", name.data),
             Node::IfStatement { .. } => format!("If"),
+            Node::WhileLoop { .. } => format!("While"),
             Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
             Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),

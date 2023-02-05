@@ -812,6 +812,47 @@ impl Checker {
             function_called: None 
         })
     }
+
+    fn check_while_loop(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::WhileLoop { condition, body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_condition = self.check_node(*condition)?;
+        self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type)?;
+
+        let mut checked_body = Vec::new();
+        
+        // Enter Scope
+        self.scope = self.scope.get().get_child(self.trace.index);
+
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in body {
+            let checked_node = self.check_node(node)?;
+            checked_body.push(checked_node.checked);
+            self.trace.index += 1;
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+        self.trace.index += 1;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
+        }
+
+        Ok(NodeInfo {
+            checked: node.convert(Node::WhileLoop { 
+                condition: Box::new(checked_condition.checked), 
+                body: checked_body 
+            }),
+            data_type: None,
+            selected: None,
+            function_called: None,
+        })
+    }
  
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
@@ -827,6 +868,7 @@ impl Checker {
             Node::ClassDefinition { .. } => self.check_class_definition(node),
             Node::SpaceDefinition { .. } => self.check_space_definition(node),
             Node::IfStatement { .. } => self.check_if_statement(node),
+            Node::WhileLoop { .. } => self.check_while_loop(node),
             Node::_Unchecked(inner) => Ok(NodeInfo { 
                 checked: *inner, 
                 data_type: None, 

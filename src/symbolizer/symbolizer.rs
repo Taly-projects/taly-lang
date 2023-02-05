@@ -249,6 +249,31 @@ impl Symbolizer {
         Ok(())
     }
 
+    fn symbolize_while_loop(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
+        let Node::WhileLoop { body, .. } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Symbolize If
+        let while_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+            children: Vec::new() 
+        }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
+        
+        scope.get().add_child(while_scope);
+
+        let while_scope_ref = scope.get().get_last();
+
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in body {
+            self.symbolize_node(node, while_scope_ref.clone())?;
+            self.trace.index += 1;
+        }
+        self.trace = *self.trace.clone().parent.unwrap();
+        self.trace.index += 1;
+
+        Ok(())
+    }
+
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
@@ -257,6 +282,7 @@ impl Symbolizer {
             Node::ClassDefinition { .. } => self.symbolize_class_definition(node, scope),
             Node::SpaceDefinition { .. } => self.symbolize_space_definition(node, scope),
             Node::IfStatement { .. } => self.symbolize_if_statement(node, scope),
+            Node::WhileLoop { .. } => self.symbolize_while_loop(node, scope),
             Node::_Unchecked(inner) => self.symbolize_node(*inner, scope),
             _ => Ok(())
         }

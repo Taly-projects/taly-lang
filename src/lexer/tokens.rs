@@ -62,7 +62,9 @@ pub enum Keyword {
     Elif,
     Else,
     Then,
-    End
+    End,
+    While,
+    Do
 }
 
 impl Keyword {
@@ -91,6 +93,8 @@ impl Keyword {
             "else" => Some(Keyword::Else),
             "then" => Some(Keyword::Then),
             "end" => Some(Keyword::End),
+            "while" => Some(Keyword::While),
+            "do" => Some(Keyword::Do),
             _ => None
         }
     }
