@@ -195,6 +195,7 @@ impl IRGenerator {
             }
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operator(node, false),
+            Node::UnaryOperation { .. } => self.generate_unary_operator(node),
             Node::Return(_) => self.generate_return(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
@@ -233,6 +234,7 @@ impl IRGenerator {
             Node::FunctionCall { .. } => self.generate_function_call(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operator(node, true),
+            Node::UnaryOperation { .. } => self.generate_unary_operator(node),
             _ => Err(IRError::UnexpectedNode(node, Some("Expression".to_string()))),
         }
     }
@@ -309,6 +311,21 @@ impl IRGenerator {
         }
 
         Ok(pre)
+    }
+
+    fn generate_unary_operator(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::UnaryOperation { operator, value } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut value_gen = self.generate_expr(*value)?;
+        let value_gen_last = value_gen.pop().unwrap();
+        value_gen.push(node.convert(Node::UnaryOperation { 
+            operator, 
+            value: Box::new(value_gen_last) 
+        }));
+
+        Ok(value_gen)
     }
 
     fn generate_return(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {

@@ -111,6 +111,17 @@ impl PostProcessor {
         })
     }
 
+    fn process_unary_op(&mut self, node: Positioned<Node>) -> Positioned<Node> {
+        let Node::UnaryOperation { operator, value } = node.data.clone() else {
+            unreachable!()
+        };
+
+        node.convert(Node::UnaryOperation { 
+            operator, 
+            value: Box::new(self.process_node(*value, None)) 
+        })
+    }
+
     fn process_return(&mut self, node: Positioned<Node>) -> Positioned<Node> {
         let Node::Return(expr) = node.data.clone() else {
             unreachable!()
@@ -163,6 +174,7 @@ impl PostProcessor {
             Node::VariableCall(_) => node,
             Node::BinaryOperation { operator, .. } if operator.data == Operator::Access => self.process_access(node),
             Node::BinaryOperation { .. } => self.process_bin_op(node),
+            Node::UnaryOperation { .. } => self.process_unary_op(node),
             Node::Return(_) => self.process_return(node),
             Node::ClassDefinition { .. } => self.process_class_definition(node),
             Node::SpaceDefinition { .. } => self.process_space_definition(node),

@@ -151,6 +151,17 @@ impl Parser {
         }
     }
 
+    fn parse_unary(&mut self, operator: Positioned<Operator>) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let value = self.parse_expr0()?;
+        let start = operator.start.clone();
+        let end = value.end.clone();
+        Ok(Positioned::new(Node::UnaryOperation { 
+            operator, 
+            value: Box::new(value) 
+        }, start, end))
+    }
+
     fn parse_expr0(&mut self) -> Result<Positioned<Node>, ParserError> {
         let current = self.expect_current(Some("expression".to_string()))?;
         match current.data.clone() {
@@ -159,6 +170,9 @@ impl Parser {
             Token::Integer(num) => Ok(current.convert(Node::Value(ValueNode::Integer(num)))),
             Token::Decimal(num) => Ok(current.convert(Node::Value(ValueNode::Decimal(num)))),
             Token::Identifier(id) => self.handle_id(current.convert(id)),
+            Token::Plus => self.parse_unary(current.convert(Operator::Add)),
+            Token::Dash => self.parse_unary(current.convert(Operator::Subtract)),
+            Token::Keyword(Keyword::Not) => self.parse_unary(current.convert(Operator::BooleanNot)),
             _ => Err(ParserError::UnexpectedToken(current, Some("Expression".to_string())))
         }
     }
@@ -514,7 +528,10 @@ impl Parser {
             Token::Bool(_) |
             Token::Integer(_) |
             Token::Decimal(_) |
-            Token::Identifier(_) => self.parse_expr().map(|x| Some(x)),
+            Token::Identifier(_) |
+            Token::Plus |
+            Token::Dash |
+            Token::Keyword(Keyword::Not) => self.parse_expr().map(|x| Some(x)),
             Token::NewLine | Token::Tab => {
                 self.advance(); 
                 Ok(None)

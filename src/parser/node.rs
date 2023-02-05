@@ -34,6 +34,10 @@ pub enum Node {
         operator: Positioned<Operator>,
         rhs: Box<Positioned<Node>>
     },
+    UnaryOperation {
+        operator: Positioned<Operator>,
+        value: Box<Positioned<Node>>
+    },
     Return(Option<Box<Positioned<Node>>>),
     ClassDefinition {
         name: Positioned<String>,
@@ -84,6 +88,13 @@ impl Node {
                 Operator::BooleanAnd => format!("BinaryOP(BooleanAnd)"),
                 Operator::BooleanOr => format!("BinaryOP(BooleanOr)"),
                 Operator::BooleanXor => format!("BinaryOP(BooleanXor)"),
+                _ => unreachable!()
+            }
+            Node::UnaryOperation { operator, .. } => match operator.data {
+                Operator::Add => format!("UnaryOP(Positive)"),
+                Operator::Subtract => format!("UnaryOP(Negative)"),
+                Operator::BooleanNot => format!("UnaryOP(Boolean Negative)"),
+                _ => unreachable!()
             }
             Node::Return(_) => format!("Return"),
             Node::ClassDefinition { name, .. } => format!("Class({})", name.data),
@@ -166,7 +177,8 @@ pub enum Operator {
     Access,
     BooleanAnd,
     BooleanOr,
-    BooleanXor
+    BooleanXor,
+    BooleanNot
 }
 
 

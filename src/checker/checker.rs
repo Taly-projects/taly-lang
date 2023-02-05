@@ -539,8 +539,26 @@ impl Checker {
                 
             }
             Operator::Assign => self.check_assignment(node),
-            Operator::Access => self.check_access(node)
+            Operator::Access => self.check_access(node),
+            _ => unreachable!()
         }
+    }
+
+    fn check_unary_operation(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::UnaryOperation { operator, value } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_value = self.check_value_node(*value)?;
+
+        Ok(NodeInfo { 
+            checked: node.convert(Node::UnaryOperation { 
+                operator, 
+                value: Box::new(checked_value.checked) 
+            }), data_type: checked_value.data_type, 
+            selected: None, 
+            function_called: None 
+        })
     }
 
     fn check_return(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
@@ -679,6 +697,7 @@ impl Checker {
             Node::VariableDefinition { .. } => self.check_variable_definition(node),
             Node::VariableCall(_) => self.check_variable_call(node),
             Node::BinaryOperation { .. } => self.check_binary_operation(node),
+            Node::UnaryOperation { .. } => self.check_unary_operation(node),
             Node::Return(_) => self.check_return(node),
             Node::ClassDefinition { .. } => self.check_class_definition(node),
             Node::SpaceDefinition { .. } => self.check_space_definition(node),

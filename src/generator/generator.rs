@@ -114,9 +114,29 @@ impl Generator {
             Operator::Access => buf.push_str("->"),
             Operator::BooleanAnd => buf.push_str(" && "),
             Operator::BooleanOr => buf.push_str(" || "),
-            Operator::BooleanXor => unreachable!(),
+            _ => unreachable!()
         }
         buf.push_str(&self.generate_current(*rhs).1);
+        buf.push(')');
+
+        (true, buf)
+    }
+
+    fn generate_unary_operation(&mut self, node: Positioned<Node>) -> (bool, String) {
+        let Node::UnaryOperation { operator, value } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+
+        buf.push('(');
+        match operator.data {
+            Operator::Add => buf.push_str("+"),
+            Operator::Subtract => buf.push_str("-"),
+            Operator::BooleanNot => buf.push_str("!"),
+            _ => unreachable!()
+        }
+        buf.push_str(&self.generate_current(*value).1);
         buf.push(')');
 
         (true, buf)
@@ -154,6 +174,7 @@ impl Generator {
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operation(node),
+            Node::UnaryOperation { .. } => self.generate_unary_operation(node),
             Node::Return(_) => self.generate_return(node),
             _ => unreachable!(),
         }
