@@ -297,6 +297,9 @@ impl IRGenerator {
                     rhs: Box::new(rhs_last) 
                 }));
             }
+        } else if operator.data == Operator::BooleanXor {
+            // lhs xor rhs => lhs || rhs && !(lhs && rhs)
+            todo!("Need Not operator!")
         } else {
             pre.push(node.convert(Node::BinaryOperation { 
                 lhs: Box::new(lhs_last), 

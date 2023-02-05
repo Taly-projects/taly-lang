@@ -47,7 +47,10 @@ pub enum Keyword {
     Pub,
     Prot,
     Lock,
-    Guard
+    Guard,
+    And,
+    Or,
+    Xor
 }
 
 impl Keyword {
@@ -67,6 +70,9 @@ impl Keyword {
             "prot" => Some(Keyword::Prot),
             "lock" => Some(Keyword::Lock),
             "guard" => Some(Keyword::Guard),
+            "and" => Some(Keyword::And),
+            "or" => Some(Keyword::Or),
+            "xor" => Some(Keyword::Xor),
             _ => None
         }
     }

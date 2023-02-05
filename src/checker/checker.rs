@@ -512,7 +512,10 @@ impl Checker {
             Operator::Add |
             Operator::Subtract |
             Operator::Multiply |
-            Operator::Divide => {
+            Operator::Divide |
+            Operator::BooleanAnd |
+            Operator::BooleanOr |
+            Operator::BooleanXor => {
                 let checked_lhs = self.check_node(*lhs.clone())?;
                 let checked_rhs = self.check_node(*rhs.clone())?;
 

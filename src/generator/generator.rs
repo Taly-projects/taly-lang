@@ -112,6 +112,9 @@ impl Generator {
             Operator::Divide => buf.push_str(" / "),
             Operator::Assign => buf.push_str(" = "),
             Operator::Access => buf.push_str("->"),
+            Operator::BooleanAnd => buf.push_str(" && "),
+            Operator::BooleanOr => buf.push_str(" || "),
+            Operator::BooleanXor => unreachable!(),
         }
         buf.push_str(&self.generate_current(*rhs).1);
         buf.push(')');

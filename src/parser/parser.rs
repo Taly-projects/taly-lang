@@ -244,7 +244,9 @@ impl Parser {
 
         while let Some(current) = self.current() {
             let operator = match current.data {
-                Token::Equal => current.convert(Operator::Assign), 
+                Token::Keyword(Keyword::And) => current.convert(Operator::BooleanAnd), 
+                Token::Keyword(Keyword::Or) => current.convert(Operator::BooleanOr), 
+                Token::Keyword(Keyword::Xor) => current.convert(Operator::BooleanXor), 
                 _ => break
             };
             self.advance();
@@ -263,8 +265,32 @@ impl Parser {
         Ok(left)
     }
 
+    fn parse_expr5(&mut self) -> Result<Positioned<Node>, ParserError> {
+        let mut left = self.parse_expr4()?;
+
+        while let Some(current) = self.current() {
+            let operator = match current.data {
+                Token::Equal => current.convert(Operator::Assign), 
+                _ => break
+            };
+            self.advance();
+
+            let right = self.parse_expr5()?;
+            
+            let start = left.start.clone();
+            let end = right.end.clone();
+            left = Positioned::new(Node::BinaryOperation { 
+                lhs: Box::new(left), 
+                operator, 
+                rhs: Box::new(right) 
+            }, start, end);
+        }
+
+        Ok(left)
+    }
+
     fn parse_expr(&mut self) -> Result<Positioned<Node>, ParserError> {
-        self.parse_expr4()
+        self.parse_expr5()
     }
 
     fn parse_use(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
@@ -476,7 +502,7 @@ impl Parser {
             Keyword::Prot => self.handle_access(keyword.convert(AccessModifier::Protected)),
             Keyword::Lock => self.handle_access(keyword.convert(AccessModifier::Locked)),
             Keyword::Guard => self.handle_access(keyword.convert(AccessModifier::Guarded)),
-            
+            _ => Err(ParserError::UnexpectedToken(self.current().unwrap(), None))
         }
     }
 
