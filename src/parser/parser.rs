@@ -523,7 +523,6 @@ impl Parser {
     fn parse_current(&mut self) -> Result<Option<Positioned<Node>>, ParserError> {
         let current = self.expect_current(None)?;
         match current.data.clone() {
-            Token::Keyword(keyword) => self.handle_keyword(current.convert(keyword)).map(|x| Some(x)),
             Token::String(_) | 
             Token::Bool(_) |
             Token::Integer(_) |
@@ -532,6 +531,7 @@ impl Parser {
             Token::Plus |
             Token::Dash |
             Token::Keyword(Keyword::Not) => self.parse_expr().map(|x| Some(x)),
+            Token::Keyword(keyword) => self.handle_keyword(current.convert(keyword)).map(|x| Some(x)),
             Token::NewLine | Token::Tab => {
                 self.advance(); 
                 Ok(None)
