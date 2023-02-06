@@ -238,7 +238,7 @@ impl PostProcessor {
             Node::SpaceDefinition { .. } => self.process_space_definition(node),
             Node::IfStatement { .. } => self.process_if_statement(node),
             Node::WhileLoop { .. } => self.process_while_loop(node),
-            Node::MatchStatement { .. } => todo!(),
+            Node::MatchStatement { .. } => unreachable!("Should have been processed in the IR Generator!"),
             Node::_Unchecked(inner) => self.process_node(*inner, None),
             Node::_Optional(inner) => self.process_node(*inner, None),
             Node::_Renamed { name, node } => self.process_node(*node, Some(name))
