@@ -2,6 +2,11 @@ use "std-stdio"
 
 extern fn printf(msg: c_string)
 
+fn factorial(n: c_int): c_int =>
+    if n <= 1 then return 1
+    else return factorial(n - 1) end
+    return 0
+
 fn main() =>
     const y = (2 + 3) * 5
 

@@ -596,6 +596,7 @@ impl Parser {
                         });
                     }
 
+                    self.advance();
                     body = Vec::new();
 
                     else_block = true;

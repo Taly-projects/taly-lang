@@ -596,7 +596,20 @@ impl Checker {
         };
 
         // Check Type
-        let ScopeType::Function { return_type, .. } = &self.scope.get().clone().scope else {
+        let mut scope = self.scope.clone();
+        loop {
+            if let ScopeType::Function { .. } = &scope.get().scope {
+                break;
+            };
+
+            if let Some(parent) = scope.get().parent.clone() {
+                scope = parent;
+            } else {
+                unreachable!()
+            }
+        }
+
+        let ScopeType::Function { return_type, .. } = &mut scope.get().scope else {
             unreachable!()
         };
 
