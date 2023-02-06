@@ -574,9 +574,29 @@ impl IRGenerator {
 
         let mut gen_branches = Vec::new();
         for branch in branches {
-            let mut gen_condition = self.generate_expr(branch.condition)?;
-            let gen_condition_last = gen_condition.pop().unwrap();
-            pre.append(&mut gen_condition);
+            let mut final_condition: Option<Positioned<Node>> = None;
+            for condition in branch.conditions {
+                let mut gen_condition = self.generate_expr(condition)?;
+                let gen_condition_last = gen_condition.pop().unwrap();
+                pre.append(&mut gen_condition);
+                if let Some(final_condition) = &mut final_condition {
+                    *final_condition = gen_condition_last.clone().convert(Node::BinaryOperation { 
+                        lhs: Box::new(final_condition.clone()), 
+                        operator: node.convert(Operator::BooleanAnd), 
+                        rhs: Box::new(gen_condition_last.clone().convert(Node::BinaryOperation { 
+                            lhs: Box::new(gen_expr_last.clone()),
+                            operator: gen_condition_last.convert(Operator::Equal), 
+                            rhs: Box::new(gen_condition_last) 
+                        })) 
+                    })
+                } else {
+                    final_condition = Some(gen_condition_last.clone().convert(Node::BinaryOperation { 
+                        lhs: Box::new(gen_expr_last.clone()),
+                        operator: gen_condition_last.convert(Operator::Equal), 
+                        rhs: Box::new(gen_condition_last) 
+                    }));
+                }
+            }
 
             let mut gen_body = Vec::new();
             for node in branch.body {
@@ -584,19 +604,11 @@ impl IRGenerator {
             }
 
             if if_condition.is_none() {
-                if_condition = Some(gen_condition_last.clone().convert(Node::BinaryOperation { 
-                    lhs: Box::new(gen_expr_last.clone()),
-                    operator: gen_condition_last.convert(Operator::Equal), 
-                    rhs: Box::new(gen_condition_last) 
-                }));
+                if_condition = final_condition;
                 if_body = gen_body;
             } else {
                 gen_branches.push(ElifBranch {
-                    condition: gen_condition_last.clone().convert(Node::BinaryOperation { 
-                        lhs: Box::new(gen_expr_last.clone()),
-                        operator: gen_condition_last.convert(Operator::Equal), 
-                        rhs: Box::new(gen_condition_last) 
-                    }),
+                    condition: final_condition.unwrap(),
                     body: gen_body
                 });
             }

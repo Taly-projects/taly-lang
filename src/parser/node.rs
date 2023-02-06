@@ -246,6 +246,6 @@ pub struct ElifBranch {
 
 #[derive(Clone, Debug)]
 pub struct MatchBranch {
-    pub condition: Positioned<Node>,
+    pub conditions: Vec<Positioned<Node>>,
     pub body: Vec<Positioned<Node>>
 }

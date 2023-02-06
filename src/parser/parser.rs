@@ -681,7 +681,26 @@ impl Parser {
                 _ => {
                     if tabs >= self.tabs {
                         tabs = 0;
-                        let condition = self.parse_expr()?;
+                        let mut conditions = Vec::new();
+                        let mut next_allowed = true;
+                        // EXPR, [TAB|NL]?EXPR
+                        loop {
+                            let current = self.expect_current(Some("Expr or =>".to_string()))?;
+                            match current.data {
+                                Token::Tab | Token::NewLine => self.advance(),
+                                Token::Comma if !next_allowed => {
+                                    self.advance();
+                                    next_allowed = true
+                                } 
+                                Token::RightDoubleArrow => break,
+                                _ => {
+                                    next_allowed = false;
+                                    let condition = self.parse_expr()?;
+                                    conditions.push(condition);
+                                }
+                            }        
+                        }
+
                         self.expect_token(Token::RightDoubleArrow)?;
                         self.advance();
     
@@ -691,7 +710,7 @@ impl Parser {
                         self.tabs -= 1;
                         
                         branches.push(MatchBranch {
-                            condition,
+                            conditions,
                             body
                         });
                     } else {
