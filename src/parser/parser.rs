@@ -28,10 +28,6 @@ impl Parser {
         self.index += x;
     }
 
-    fn rewind(&mut self) {
-        self.index -= 1;
-    }
-
     fn current(&self) -> Option<Positioned<Token>> {
         self.tokens.get(self.index).cloned()
     } 

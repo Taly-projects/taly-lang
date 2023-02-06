@@ -1,4 +1,4 @@
-use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch, MatchBranch}};
+use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch,}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           IR Generator                                         //
