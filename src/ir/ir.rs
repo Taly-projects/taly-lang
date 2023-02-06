@@ -566,7 +566,7 @@ impl IRGenerator {
         pre.append(&mut gen_expr);
 
         if branches.is_empty() {
-            todo!("Error cannot have empty match expression!");
+            return Err(IRError::CannotHaveEmptyMatchExpression(node.convert(())));
         }
 
         let mut if_condition = None;

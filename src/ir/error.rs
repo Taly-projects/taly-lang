@@ -12,7 +12,8 @@ pub enum IRError {
     DestructorShouldNotReturnAnything(Positioned<()>),
     DestructorShouldNotHaveParameters(Positioned<()>),
     DestructorShouldNotBeConstructor(Positioned<()>),
-    MainFunctionShouldReturnCInt(Positioned<()>)
+    MainFunctionShouldReturnCInt(Positioned<()>),
+    CannotHaveEmptyMatchExpression(Positioned<()>)
 }
 
 impl IRError {
@@ -63,6 +64,11 @@ impl IRError {
             IRError::MainFunctionShouldReturnCInt(node) => {
                 ErrorFormat::new(ErrorType::Error)
                     .add_message(format!("The main function should return I32 or c_int or nothing!"), Some(node.clone()))
+                    .set_step("IR Generator".to_string()).print(src);  
+            },
+            IRError::CannotHaveEmptyMatchExpression(node) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Cannot have empty match expression!"), Some(node.clone()))
                     .set_step("IR Generator".to_string()).print(src);  
             },
         }
