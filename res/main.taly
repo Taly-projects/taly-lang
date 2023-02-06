@@ -4,9 +4,11 @@ extern fn printf(msg: c_string)
 
 fn main() =>
     const y = (2 + 3) * 5
-    match y
-        1 => printf("One")
-        2 => printf("Two")
-    else 
-        printf("Other") 
+
+    if y == 1 then
+        printf("Hello")
+    end
+
+    if y == 1 then
+        printf("Hello")
     end

@@ -7,7 +7,7 @@ use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error:
 pub struct Symbolizer {
     ir_output: IROutput,
     index: usize,
-    trace: Trace
+    trace: Trace,
 }
 
 impl Symbolizer {
@@ -195,6 +195,7 @@ impl Symbolizer {
 
         // Symbolize If
         let if_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+            debug_name: "If".to_string(),
             children: Vec::new() 
         }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
         
@@ -213,6 +214,7 @@ impl Symbolizer {
         // Symbolize Elif
         for elif_branch in elif_branches {
             let elif_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+                debug_name: "Elif".to_string(),
                 children: Vec::new() 
             }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
         
@@ -230,21 +232,23 @@ impl Symbolizer {
         }
 
         // Symbolize Else
-        let else_scope = Scope::new(node.convert(()), ScopeType::Branch { 
-            children: Vec::new() 
-        }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
-        
-        scope.get().add_child(else_scope);
-
-        let else_scope_ref = scope.get().get_last();
-
-        self.trace = Trace::new(0, self.trace.clone());
-        for node in else_body {
-            self.symbolize_node(node, else_scope_ref.clone())?;
-            self.trace.index += 1;
+        if !else_body.is_empty() {
+            let else_scope = Scope::new(node.convert(()), ScopeType::Branch {
+                debug_name: "Else".to_string(), 
+                children: Vec::new() 
+            }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
+            
+            scope.get().add_child(else_scope);
+    
+            let else_scope_ref = scope.get().get_last();
+    
+            self.trace = Trace::new(0, self.trace.clone());
+            for node in else_body {
+                self.symbolize_node(node, else_scope_ref.clone())?;
+                self.trace.index += 1;
+            }
+            self.trace = *self.trace.clone().parent.unwrap();
         }
-        self.trace = *self.trace.clone().parent.unwrap();
-        self.trace.index += 1;
 
         Ok(())
     }
@@ -256,6 +260,7 @@ impl Symbolizer {
 
         // Symbolize If
         let while_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+            debug_name: "While".to_string(),
             children: Vec::new() 
         }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
         

@@ -780,24 +780,25 @@ impl Checker {
         }
 
         // Enter Scope
-        self.scope = self.scope.get().get_child(self.trace.index);
-
         let mut checked_else_body = Vec::new();
-        self.trace = Trace::new(0, self.trace.clone());
-        for node in else_body {
-            let checked_node = self.check_node(node)?;
-            checked_else_body.push(checked_node.checked);
-            self.trace.index += 1;
-        }
-        let parent_trace = *self.trace.clone().parent.unwrap();
-        self.trace = parent_trace;
-        self.trace.index += 1;
-
-        // Exit Scope
-        if let Some(parent) = self.scope.get().parent.clone() {
-            self.scope = parent;
-        } else {
-            unreachable!("Not parent after entering function!");
+        if !else_body.is_empty() {
+            self.scope = self.scope.get().get_child(self.trace.index);
+    
+            self.trace = Trace::new(0, self.trace.clone());
+            for node in else_body {
+                let checked_node = self.check_node(node)?;
+                checked_else_body.push(checked_node.checked);
+                self.trace.index += 1;
+            }
+            let parent_trace = *self.trace.clone().parent.unwrap();
+            self.trace = parent_trace;
+    
+            // Exit Scope
+            if let Some(parent) = self.scope.get().parent.clone() {
+                self.scope = parent;
+            } else {
+                unreachable!("Not parent after entering function!");
+            }
         }
 
         Ok(NodeInfo { 
@@ -887,7 +888,7 @@ impl Checker {
             ScopeType::Class { children, .. } |
             ScopeType::Function { children, .. } |
             ScopeType::Space {children, .. } |
-            ScopeType::Branch { children } => {
+            ScopeType::Branch { children, .. } => {
                 for scope in children.iter() {
                     self.check_inference(scope)?;
                 }

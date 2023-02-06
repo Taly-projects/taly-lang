@@ -34,6 +34,7 @@ pub enum ScopeType {
         linked_class: bool
     },
     Branch {
+        debug_name: String,
         children: Vec<Scope>
     }
 }
@@ -78,7 +79,7 @@ impl Scope {
             ScopeType::Variable { name, data_type, .. } => format!("Variable({:?}, {})", data_type, name.data),
             ScopeType::Class { name, .. } => format!("Class({})", name.data),
             ScopeType::Space { name, .. } => format!("Space({})", name.data),
-            ScopeType::Branch { .. } => "Branch".to_string()
+            ScopeType::Branch { debug_name, .. } => format!("Branch({})", debug_name)
         }
     }
 
@@ -128,7 +129,7 @@ impl Scope {
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
             ScopeType::Space { children, .. } |
-            ScopeType::Branch { children } => {
+            ScopeType::Branch { children, .. } => {
                 children.push(scope);
             }
             ScopeType::Variable { .. } => {
@@ -143,7 +144,7 @@ impl Scope {
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
             ScopeType::Space { children, .. } |
-            ScopeType::Branch { children } => {
+            ScopeType::Branch { children, .. } => {
                 MutRef::new(children.last_mut().unwrap())
             }
             ScopeType::Variable { .. } => {
@@ -158,8 +159,13 @@ impl Scope {
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
             ScopeType::Space { children, .. } |
-            ScopeType::Branch { children } => {
-                MutRef::new(children.get_mut(index).unwrap())
+            ScopeType::Branch { children, .. } => {
+                for child in children {
+                    if child.trace.index == index {
+                        return MutRef::new(child);
+                    }
+                }
+                panic!("Could not find child '{}'", index);
             }
             ScopeType::Variable { .. } => {
                 panic!("cannot have children here!")
@@ -274,7 +280,7 @@ impl Scope {
                 }
             },
             ScopeType::Class { children, .. } if allow_fields => Self::get_variable_in_children(children, trace, name),
-            ScopeType::Branch { children} => Self::get_variable_in_children(children, trace, name),
+            ScopeType::Branch { children, ..} => Self::get_variable_in_children(children, trace, name),
             _ => None
         }
     }
