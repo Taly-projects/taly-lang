@@ -214,7 +214,7 @@ impl Generator {
             if !elif_branch.body.is_empty() {
                 buf.push('\n');
             }
-            buf.push('}');
+            buf.push_str("} ");
         }
 
         if !else_body.is_empty() {
