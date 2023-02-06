@@ -869,6 +869,7 @@ impl Checker {
             Node::SpaceDefinition { .. } => self.check_space_definition(node),
             Node::IfStatement { .. } => self.check_if_statement(node),
             Node::WhileLoop { .. } => self.check_while_loop(node),
+            Node::MatchStatement { .. } => todo!(),
             Node::_Unchecked(inner) => Ok(NodeInfo { 
                 checked: *inner, 
                 data_type: None, 

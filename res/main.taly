@@ -1,18 +1,12 @@
-pub space Number
+use "std-stdio"
 
-    pub class I32
-        var inner: c_int
-
-        pub new create(inner: c_int) =>
-            self.inner = inner
-            self.add_one()
-
-        pub fn add_one() =>
-            self.inner = self.inner + 1
+extern fn printf(msg: c_string)
 
 fn main() =>
     const y = (2 + 3) * 5
-    if y > 5 then
-        const x = Number.I32.create(0)
+    match y
+        1 => printf("One")
+        2 => printf("Two")
+    else 
+        printf("Other") 
     end
-    

@@ -1,4 +1,4 @@
-use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator, AccessModifier, ElifBranch}}};
+use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator, AccessModifier, ElifBranch, MatchBranch}}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Parser                                             //
@@ -26,6 +26,10 @@ impl Parser {
 
     fn advance_x(&mut self, x: usize) {
         self.index += x;
+    }
+
+    fn rewind(&mut self) {
+        self.index -= 1;
     }
 
     fn current(&self) -> Option<Positioned<Token>> {
@@ -87,9 +91,12 @@ impl Parser {
                         tab = 0;
                         first = false;
                         continue;
+                    } else if current.data == Token::Keyword(Keyword::End) || current.data == Token::Keyword(Keyword::Else) || current.data == Token::Keyword(Keyword::Elif) {
+                        break 'A;
                     } else {
                         if tab < self.tabs && !first {
                             self.index = pre_index;
+                            println!("Not Enough tab {}/{}", tab, self.tabs);
                             break 'A;
                         } else {
                             break;
@@ -637,6 +644,76 @@ impl Parser {
         }, start, end))
     }
 
+    fn parse_match_statement(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let expr = self.parse_expr()?;
+        self.expect_token(Token::NewLine)?;
+        self.advance();
+        self.tabs += 1;
+
+        let mut branches = Vec::new();
+        let mut else_body = Vec::new();
+        let end;
+
+        let mut tabs = 0;
+        let mut current = self.expect_current(Some("end".to_string()))?;
+        loop {
+            match current.data {
+                Token::Keyword(Keyword::Else) => {
+                    self.advance();
+
+                    // No +1 on index because already +1 for the global match
+                    self.parse_body(&mut else_body)?;
+                    
+                    end = self.expect_token(Token::Keyword(Keyword::End))?.end;
+                    self.advance();
+                    break;
+                }
+                Token::Keyword(Keyword::End) => {
+                    end = current.end.clone();
+                    self.advance();
+                    break;
+                }
+                Token::NewLine => {
+                    tabs = 0;
+                    self.advance();
+                }
+                Token::Tab => {
+                    tabs += 1;
+                    self.advance();
+                }
+                _ => {
+                    if tabs >= self.tabs {
+                        tabs = 0;
+                        let condition = self.parse_expr()?;
+                        self.expect_token(Token::RightDoubleArrow)?;
+                        self.advance();
+    
+                        self.tabs += 1;
+                        let mut body = Vec::new();
+                        self.parse_body(&mut body)?;
+                        self.tabs -= 1;
+                        
+                        branches.push(MatchBranch {
+                            condition,
+                            body
+                        });
+                    } else {
+                        return Err(ParserError::UnexpectedToken(current, Some("tab".to_string())));
+                    }
+                }  
+            }
+            current = self.expect_current(Some("end".to_string()))?;
+        }
+        self.tabs -= 1;
+
+        Ok(Positioned::new(Node::MatchStatement { 
+            expr: Box::new(expr), 
+            branches, 
+            else_body 
+        }, start, end))
+    } 
+
     fn handle_access(&mut self, access: Positioned<AccessModifier>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let current = self.expect_current(Some("Function, Class, Space, ..".to_string()))?;
@@ -672,6 +749,7 @@ impl Parser {
             Keyword::Guard => self.handle_access(keyword.convert(AccessModifier::Guarded)),
             Keyword::If => self.parse_if_statement(keyword.start),
             Keyword::While => self.parse_while_loop(keyword.start),
+            Keyword::Match => self.parse_match_statement(keyword.start),
             _ => Err(ParserError::UnexpectedToken(self.current().unwrap(), None))
         }
     }

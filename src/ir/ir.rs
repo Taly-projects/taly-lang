@@ -1,4 +1,4 @@
-use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch}};
+use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch, MatchBranch}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           IR Generator                                         //
@@ -199,6 +199,7 @@ impl IRGenerator {
             Node::Return(_) => self.generate_return(node),
             Node::IfStatement { .. } => self.generate_if_statement(node),
             Node::WhileLoop { .. } => self.generate_while_loop(node),
+            Node::MatchStatement { .. } => self.generate_match_statement(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
@@ -550,6 +551,68 @@ impl IRGenerator {
         pre.push(node.convert(Node::WhileLoop { 
             condition: Box::new(gen_condition_last), 
             body: gen_body 
+        }));
+
+        Ok(pre)
+    }
+
+    fn generate_match_statement(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::MatchStatement { expr, branches, else_body } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut pre = Vec::new();
+        let mut gen_expr = self.generate_expr(*expr)?;
+        let gen_expr_last = gen_expr.pop().unwrap();
+        pre.append(&mut gen_expr);
+
+        if branches.is_empty() {
+            todo!("Error cannot have empty match expression!");
+        }
+
+        let mut if_condition = None;
+        let mut if_body = Vec::new();
+
+        let mut gen_branches = Vec::new();
+        for branch in branches {
+            let mut gen_condition = self.generate_expr(branch.condition)?;
+            let gen_condition_last = gen_condition.pop().unwrap();
+            pre.append(&mut gen_condition);
+
+            let mut gen_body = Vec::new();
+            for node in branch.body {
+                gen_body.append(&mut self.generate_function_definition_body(node)?);
+            }
+
+            if if_condition.is_none() {
+                if_condition = Some(gen_condition_last.clone().convert(Node::BinaryOperation { 
+                    lhs: Box::new(gen_expr_last.clone()),
+                    operator: gen_condition_last.convert(Operator::Equal), 
+                    rhs: Box::new(gen_condition_last) 
+                }));
+                if_body = gen_body;
+            } else {
+                gen_branches.push(ElifBranch {
+                    condition: gen_condition_last.clone().convert(Node::BinaryOperation { 
+                        lhs: Box::new(gen_expr_last.clone()),
+                        operator: gen_condition_last.convert(Operator::Equal), 
+                        rhs: Box::new(gen_condition_last) 
+                    }),
+                    body: gen_body
+                });
+            }
+        }
+
+        let mut else_body_gen = Vec::new();
+        for node in else_body {
+            else_body_gen.append(&mut self.generate_function_definition_body(node)?);
+        }
+
+        pre.push(node.convert(Node::IfStatement { 
+            condition: Box::new(if_condition.unwrap()), 
+            body: if_body, 
+            elif_branches: gen_branches, 
+            else_body: else_body_gen 
         }));
 
         Ok(pre)

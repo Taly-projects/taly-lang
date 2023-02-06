@@ -59,6 +59,11 @@ pub enum Node {
         condition: Box<Positioned<Node>>,
         body: Vec<Positioned<Node>>
     },
+    MatchStatement {
+        expr: Box<Positioned<Node>>,
+        branches: Vec<MatchBranch>,
+        else_body: Vec<Positioned<Node>>
+    },
     // Compiler Specific Annotation
     _Unchecked(Box<Positioned<Node>>),
     _Optional(Box<Positioned<Node>>),
@@ -117,6 +122,7 @@ impl Node {
             Node::SpaceDefinition { name, .. } => format!("Space({})", name.data),
             Node::IfStatement { .. } => format!("If"),
             Node::WhileLoop { .. } => format!("While"),
+            Node::MatchStatement { .. } => format!("Match"),
             Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
             Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),
@@ -228,6 +234,18 @@ pub enum AccessModifier {
 
 #[derive(Clone, Debug)]
 pub struct ElifBranch {
+    pub condition: Positioned<Node>,
+    pub body: Vec<Positioned<Node>>
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                           Match Branch                                         //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+#[derive(Clone, Debug)]
+pub struct MatchBranch {
     pub condition: Positioned<Node>,
     pub body: Vec<Positioned<Node>>
 }
