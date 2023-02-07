@@ -174,10 +174,12 @@ impl Generator {
     }
 
     fn generate_break(&mut self, node: Positioned<Node>) -> (bool, String) {
+        _ = node;
         (true, "break".to_string())
     }
 
     fn generate_continue(&mut self, node: Positioned<Node>) -> (bool, String) {
+        _ = node;
         (true, "continue".to_string())
     }
 

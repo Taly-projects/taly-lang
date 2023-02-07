@@ -777,7 +777,7 @@ impl Parser {
             Keyword::While => self.parse_while_loop(keyword.start),
             Keyword::Match => self.parse_match_statement(keyword.start),
             Keyword::Break => self.parse_break(keyword.convert(())),
-            Keyword::Continue => self.parse_break(keyword.convert(())),
+            Keyword::Continue => self.parse_continue(keyword.convert(())),
             _ => Err(ParserError::UnexpectedToken(self.current().unwrap(), None))
         }
     }
