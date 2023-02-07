@@ -869,19 +869,34 @@ impl Checker {
     }
 
     fn check_break(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::Break(label) = node.data.clone() else {
+            unreachable!()
+        };
+
         // Check if in loop
+        let label_found = label.is_none();
+        let mut loop_found = false;
         let mut scope = self.scope.clone();
         loop {
-            if let ScopeType::Branch { debug_name, .. } = &scope.get().scope {
+            if let ScopeType::Branch { label: branch_label, debug_name, .. } = &scope.get().scope {
                 if debug_name == "While" {
-                    break;
+                    loop_found = true;
+                    if label_found {
+                        break;
+                    } else if let Some(branch_label) = branch_label {
+                        if branch_label.data == label.clone().unwrap().data {
+                            break;
+                        }
+                    }
                 }
             };
 
             if let Some(parent) = scope.get().parent.clone() {
                 scope = parent;
-            } else {
+            } else if !loop_found {
                 return Err(CheckerError::BreakStatementShouldOnlyBeFoundInLoops(node.convert(())))
+            } else {
+                todo!("Err could not find label")
             }
         }
 
@@ -894,19 +909,34 @@ impl Checker {
     }
 
     fn check_continue(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::Continue(label) = node.data.clone() else {
+            unreachable!()
+        };
+
         // Check if in loop
+        let label_found = label.is_none();
+        let mut loop_found = false;
         let mut scope = self.scope.clone();
         loop {
-            if let ScopeType::Branch { debug_name, .. } = &scope.get().scope {
+            if let ScopeType::Branch { label: branch_label, debug_name, .. } = &scope.get().scope {
                 if debug_name == "While" {
-                    break;
+                    loop_found = true;
+                    if label_found {
+                        break;
+                    } else if let Some(branch_label) = branch_label {
+                        if branch_label.data == label.clone().unwrap().data {
+                            break;
+                        }
+                    }
                 }
             };
 
             if let Some(parent) = scope.get().parent.clone() {
                 scope = parent;
-            } else {
+            } else if !loop_found {
                 return Err(CheckerError::ContinueStatementShouldOnlyBeFoundInLoops(node.convert(())))
+            } else {
+                todo!("Err could not find label")
             }
         }
 
@@ -914,6 +944,24 @@ impl Checker {
             checked: node.clone(), 
             data_type: None, 
             selected: None, 
+            function_called: None
+        })
+    }
+
+    fn check_label(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::Label { name, inner } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let checked_inner = self.check_node(*inner)?;
+
+        Ok(NodeInfo {
+            checked: node.convert(Node::Label { 
+                name, 
+                inner: Box::new(checked_inner.checked) 
+            }),
+            data_type: None,
+            selected: None,
             function_called: None
         })
     }
@@ -934,8 +982,9 @@ impl Checker {
             Node::IfStatement { .. } => self.check_if_statement(node),
             Node::WhileLoop { .. } => self.check_while_loop(node),
             Node::MatchStatement { .. } => unreachable!("Should have been processed in the IR Generator!"),
-            Node::Break => self.check_break(node),
-            Node::Continue => self.check_continue(node),
+            Node::Break(_) => self.check_break(node),
+            Node::Continue(_) => self.check_continue(node),
+            Node::Label { .. } => self.check_label(node),
             Node::_Unchecked(inner) => Ok(NodeInfo { 
                 checked: *inner, 
                 data_type: None, 

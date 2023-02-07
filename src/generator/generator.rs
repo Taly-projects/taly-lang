@@ -174,13 +174,47 @@ impl Generator {
     }
 
     fn generate_break(&mut self, node: Positioned<Node>) -> (bool, String) {
-        _ = node;
-        (true, "break".to_string())
+        let Node::Break(label) = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+        buf.push_str("break");
+        if let Some(label) = label {
+            buf.push(' ');
+            buf.push_str(&label.data);
+        }
+
+        (true, buf)
     }
 
     fn generate_continue(&mut self, node: Positioned<Node>) -> (bool, String) {
-        _ = node;
-        (true, "continue".to_string())
+        let Node::Continue(label) = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+        buf.push_str("continue");
+        if let Some(label) = label {
+            buf.push(' ');
+            buf.push_str(&label.data);
+        }
+        
+        (true, buf)
+    }
+
+    fn generate_label(&mut self, node: Positioned<Node>) -> (bool, String) {
+        let Node::Label { name, inner } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut buf = String::new();
+        buf.push_str(&name.data);
+        buf.push_str(": ");
+        let inner_out = &self.generate_current(*inner);
+        buf.push_str(&inner_out.1);
+        
+        (inner_out.0, buf)
     }
 
     fn generate_if_statement(&mut self, node: Positioned<Node>) -> (bool, String) {
@@ -287,8 +321,9 @@ impl Generator {
             Node::Return(_) => self.generate_return(node),
             Node::IfStatement { .. } => self.generate_if_statement(node),
             Node::WhileLoop { .. } => self.generate_while_loop(node),
-            Node::Break => self.generate_break(node),
-            Node::Continue => self.generate_continue(node),
+            Node::Break(_) => self.generate_break(node),
+            Node::Continue(_) => self.generate_continue(node),
+            Node::Label { .. } => self.generate_label(node),
             _ => unreachable!(),
         }
     }

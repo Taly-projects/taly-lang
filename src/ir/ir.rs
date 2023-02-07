@@ -200,8 +200,9 @@ impl IRGenerator {
             Node::IfStatement { .. } => self.generate_if_statement(node),
             Node::WhileLoop { .. } => self.generate_while_loop(node),
             Node::MatchStatement { .. } => self.generate_match_statement(node),
-            Node::Break => Ok(vec![node.clone()]),
-            Node::Continue => Ok(vec![node.clone()]),
+            Node::Break(_) => self.generate_break(node),
+            Node::Continue(_) => self.generate_continue(node),
+            Node::Label { .. } => self.generate_label(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
@@ -626,6 +627,36 @@ impl IRGenerator {
             body: if_body, 
             elif_branches: gen_branches, 
             else_body: else_body_gen 
+        }));
+
+        Ok(pre)
+    }
+
+    fn generate_break(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        Ok(vec![node.clone()])
+    }
+
+    fn generate_continue(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        Ok(vec![node.clone()])
+    }
+
+    fn generate_label(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::Label { name, inner } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let Node::WhileLoop { .. } = inner.data else {
+            unreachable!("Label should only contains loops")
+        };
+
+        let mut pre = Vec::new();
+        let mut gen_inner = self.generate_function_definition_body(*inner)?;
+        let gen_inner_last = gen_inner.pop().unwrap();
+        pre.append(&mut gen_inner);
+
+        pre.push(node.convert(Node::Label { 
+            name, 
+            inner: Box::new(gen_inner_last) 
         }));
 
         Ok(pre)

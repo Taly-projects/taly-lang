@@ -10,6 +10,7 @@ pub enum Token {
     Integer(String),
     Decimal(String),
     Bool(bool),
+    Label(String),
     // Symbols
     LeftParenthesis,
     RightParenthesis,

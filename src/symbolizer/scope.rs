@@ -34,6 +34,7 @@ pub enum ScopeType {
         linked_class: bool
     },
     Branch {
+        label: Option<Positioned<String>>,
         debug_name: String,
         children: Vec<Scope>
     }
@@ -79,7 +80,7 @@ impl Scope {
             ScopeType::Variable { name, data_type, .. } => format!("Variable({:?}, {})", data_type, name.data),
             ScopeType::Class { name, .. } => format!("Class({})", name.data),
             ScopeType::Space { name, .. } => format!("Space({})", name.data),
-            ScopeType::Branch { debug_name, .. } => format!("Branch({})", debug_name)
+            ScopeType::Branch { debug_name, .. } => format!("Branch({})", debug_name),
         }
     }
 
@@ -132,9 +133,9 @@ impl Scope {
             ScopeType::Branch { children, .. } => {
                 children.push(scope);
             }
-            ScopeType::Variable { .. } => {
+            _ => {
                 panic!("cannot add child here!")
-            }
+            },
         }
     }
 
@@ -147,7 +148,7 @@ impl Scope {
             ScopeType::Branch { children, .. } => {
                 MutRef::new(children.last_mut().unwrap())
             }
-            ScopeType::Variable { .. } => {
+            _ => {
                 panic!("cannot have children here!")
             }
         }
@@ -167,7 +168,7 @@ impl Scope {
                 }
                 panic!("Could not find child '{}'", index);
             }
-            ScopeType::Variable { .. } => {
+            _ => {
                 panic!("cannot have children here!")
             }
         }

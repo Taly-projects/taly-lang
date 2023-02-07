@@ -732,12 +732,32 @@ impl Parser {
 
     fn parse_break(&mut self, position: Positioned<()>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
-        Ok(position.convert(Node::Break))
+        let label = if let Some(current) = self.current() {
+            if let Token::Label(label) = current.data.clone() {
+                self.advance();
+                Some(current.convert(label))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        Ok(position.convert(Node::Break(label)))
     }
 
     fn parse_continue(&mut self, position: Positioned<()>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
-        Ok(position.convert(Node::Continue))
+        let label = if let Some(current) = self.current() {
+            if let Token::Label(label) = current.data.clone() {
+                self.advance();
+                Some(current.convert(label))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        Ok(position.convert(Node::Continue(label)))
     }
 
     fn handle_access(&mut self, access: Positioned<AccessModifier>) -> Result<Positioned<Node>, ParserError> {
@@ -782,6 +802,25 @@ impl Parser {
         }
     }
 
+    fn parse_label(&mut self, label: Positioned<String>) -> Result<Positioned<Node>, ParserError> {
+        let start = label.start.clone();
+        self.advance();
+        self.expect_token(Token::Colon)?;
+        self.advance();
+        let current = self.expect_current(Some("loop".to_string()))?;
+        match current.data {
+            Token::Keyword(Keyword::While) => {
+                let inner = self.parse_while_loop(current.start)?;
+                let end = inner.end.clone();
+                Ok(Positioned::new(Node::Label { 
+                    name: label, 
+                    inner: Box::new(inner) 
+                }, start, end))
+            },
+            _ => return Err(ParserError::UnexpectedToken(current, Some("loop".to_string()))),
+        }
+    } 
+
     fn parse_current(&mut self) -> Result<Option<Positioned<Node>>, ParserError> {
         let current = self.expect_current(None)?;
         match current.data.clone() {
@@ -795,6 +834,7 @@ impl Parser {
             Token::Keyword(Keyword::Not) |
             Token::LeftParenthesis => self.parse_expr().map(|x| Some(x)),
             Token::Keyword(keyword) => self.handle_keyword(current.convert(keyword)).map(|x| Some(x)),
+            Token::Label(label) => self.parse_label(current.convert(label)).map(|x| Some(x)),
             Token::NewLine | Token::Tab => {
                 self.advance(); 
                 Ok(None)

@@ -230,6 +230,19 @@ impl PostProcessor {
         node.clone()
     }
 
+    fn process_label(&mut self, node: Positioned<Node>) -> Positioned<Node> {
+        let Node::Label { name, inner } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let processed_inner = self.process_node(*inner, None);
+        
+        node.convert(Node::Label {
+            name,
+            inner: Box::new(processed_inner)
+        })
+    }
+
     fn process_node(&mut self, node: Positioned<Node>, new_name: Option<String>) -> Positioned<Node> {
         match node.data.clone() {
             Node::Value(_) => node,
@@ -247,8 +260,9 @@ impl PostProcessor {
             Node::IfStatement { .. } => self.process_if_statement(node),
             Node::WhileLoop { .. } => self.process_while_loop(node),
             Node::MatchStatement { .. } => unreachable!("Should have been processed in the IR Generator!"),
-            Node::Break => self.process_break(node),
-            Node::Continue => self.process_continue(node),
+            Node::Break(_) => self.process_break(node),
+            Node::Continue(_) => self.process_continue(node),
+            Node::Label { .. } => self.process_label(node),
             Node::_Unchecked(inner) => self.process_node(*inner, None),
             Node::_Optional(inner) => self.process_node(*inner, None),
             Node::_Renamed { name, node } => self.process_node(*node, Some(name))

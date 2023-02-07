@@ -9,7 +9,7 @@ fn factorial(n: c_int): c_int =>
 
 fn main() =>
     var i: c_int = 0
-    while 1 do
-        if i == 4 then break end
+    $A: while 1 do
+        if i == 4 then break $A end
         i = i + 1
     end

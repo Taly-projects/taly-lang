@@ -151,6 +151,20 @@ impl Lexer {
                 ')' => tokens.push(self.make_single(Token::RightParenthesis)),
                 ',' => tokens.push(self.make_single(Token::Comma)),
                 ':' => tokens.push(self.make_single(Token::Colon)),
+                '$' => {
+                    let start = self.pos.clone();
+                    self.advance();
+                    if self.current().is_alphabetic() {
+                        let expr = self.make_identifier()?;
+                        let Token::Identifier(id) = expr.data else {
+                            unreachable!()
+                        };
+                        tokens.push(Positioned::new(Token::Label(id), start, expr.end));
+                        continue;
+                    } else {
+                        return Err(LexerError::UnexpectedChar(self.make_single(self.current()), Some("letter".to_string())));
+                    }
+                }
                 '=' => {
                     let next = self.peek(1);
                     match next {

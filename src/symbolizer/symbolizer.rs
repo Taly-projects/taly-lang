@@ -195,6 +195,7 @@ impl Symbolizer {
 
         // Symbolize If
         let if_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+            label: None,
             debug_name: "If".to_string(),
             children: Vec::new() 
         }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
@@ -214,6 +215,7 @@ impl Symbolizer {
         // Symbolize Elif
         for elif_branch in elif_branches {
             let elif_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+                label: None,
                 debug_name: "Elif".to_string(),
                 children: Vec::new() 
             }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
@@ -234,6 +236,7 @@ impl Symbolizer {
         // Symbolize Else
         if !else_body.is_empty() {
             let else_scope = Scope::new(node.convert(()), ScopeType::Branch {
+                label: None,
                 debug_name: "Else".to_string(), 
                 children: Vec::new() 
             }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
@@ -260,6 +263,7 @@ impl Symbolizer {
 
         // Symbolize If
         let while_scope = Scope::new(node.convert(()), ScopeType::Branch { 
+            label: None,
             debug_name: "While".to_string(),
             children: Vec::new() 
         }, Some(scope.clone()), self.trace.clone(), Some(node.convert(AccessModifier::Public)));
@@ -279,6 +283,24 @@ impl Symbolizer {
         Ok(())
     }
 
+    fn symbolize_label(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
+        let Node::Label { name, inner } = node.data.clone() else {
+            unreachable!()
+        };
+
+        self.symbolize_node(*inner, scope.clone())?;
+
+        let scope_ref = scope.get();
+        let last_scope = scope_ref.get_last();
+        let ScopeType::Branch { label, .. } = &mut last_scope.get().scope else {
+            unreachable!("There should be a branch inside a label")
+        };
+
+        *label = Some(name);
+
+        Ok(())
+    }
+
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
@@ -288,6 +310,7 @@ impl Symbolizer {
             Node::SpaceDefinition { .. } => self.symbolize_space_definition(node, scope),
             Node::IfStatement { .. } => self.symbolize_if_statement(node, scope),
             Node::WhileLoop { .. } => self.symbolize_while_loop(node, scope),
+            Node::Label { .. } => self.symbolize_label(node, scope),
             Node::_Unchecked(inner) => self.symbolize_node(*inner, scope),
             _ => Ok(())
         }
