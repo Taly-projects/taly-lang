@@ -64,6 +64,8 @@ pub enum Node {
         branches: Vec<MatchBranch>,
         else_body: Vec<Positioned<Node>>
     },
+    Break,
+    Continue,
     // Compiler Specific Annotation
     _Unchecked(Box<Positioned<Node>>),
     _Optional(Box<Positioned<Node>>),
@@ -123,6 +125,8 @@ impl Node {
             Node::IfStatement { .. } => format!("If"),
             Node::WhileLoop { .. } => format!("While"),
             Node::MatchStatement { .. } => format!("Match"),
+            Node::Break => format!("break"),
+            Node::Continue => format!("continue"),
             Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
             Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),

@@ -65,7 +65,9 @@ pub enum Keyword {
     End,
     While,
     Do,
-    Match
+    Match,
+    Break,
+    Continue
 }
 
 impl Keyword {
@@ -97,6 +99,8 @@ impl Keyword {
             "while" => Some(Keyword::While),
             "do" => Some(Keyword::Do),
             "match" => Some(Keyword::Match),
+            "break" => Some(Keyword::Break),
+            "continue" => Some(Keyword::Continue),
             _ => None
         }
     }

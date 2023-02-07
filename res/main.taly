@@ -8,11 +8,8 @@ fn factorial(n: c_int): c_int =>
     return 0
 
 fn main() =>
-    const y = (2 + 3) * 5
-
-    match y
-        0, 1 => printf("Zero or One")
-        2 => printf("2")
-    else
-        printf("Other")
+    var i: c_int = 0
+    while 1 do
+        if i == 4 then break end
+        i = i + 1
     end

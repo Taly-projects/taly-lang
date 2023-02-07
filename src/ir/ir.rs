@@ -200,6 +200,8 @@ impl IRGenerator {
             Node::IfStatement { .. } => self.generate_if_statement(node),
             Node::WhileLoop { .. } => self.generate_while_loop(node),
             Node::MatchStatement { .. } => self.generate_match_statement(node),
+            Node::Break => Ok(vec![node.clone()]),
+            Node::Continue => Ok(vec![node.clone()]),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }

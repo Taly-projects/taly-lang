@@ -867,6 +867,28 @@ impl Checker {
             function_called: None,
         })
     }
+
+    fn check_break(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        // TODO: Check if in loop
+
+        Ok(NodeInfo { 
+            checked: node.clone(), 
+            data_type: None, 
+            selected: None, 
+            function_called: None
+        })
+    }
+
+    fn check_continue(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        // TODO: Check if in loop
+        
+        Ok(NodeInfo { 
+            checked: node.clone(), 
+            data_type: None, 
+            selected: None, 
+            function_called: None
+        })
+    }
  
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
@@ -884,6 +906,8 @@ impl Checker {
             Node::IfStatement { .. } => self.check_if_statement(node),
             Node::WhileLoop { .. } => self.check_while_loop(node),
             Node::MatchStatement { .. } => unreachable!("Should have been processed in the IR Generator!"),
+            Node::Break => self.check_break(node),
+            Node::Continue => self.check_continue(node),
             Node::_Unchecked(inner) => Ok(NodeInfo { 
                 checked: *inner, 
                 data_type: None, 

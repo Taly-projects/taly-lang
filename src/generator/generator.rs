@@ -173,6 +173,14 @@ impl Generator {
         (true, buf)
     }
 
+    fn generate_break(&mut self, node: Positioned<Node>) -> (bool, String) {
+        (true, "break".to_string())
+    }
+
+    fn generate_continue(&mut self, node: Positioned<Node>) -> (bool, String) {
+        (true, "continue".to_string())
+    }
+
     fn generate_if_statement(&mut self, node: Positioned<Node>) -> (bool, String) {
         let Node::IfStatement { condition, body, elif_branches, else_body } = node.data.clone() else {
             unreachable!()
@@ -277,6 +285,8 @@ impl Generator {
             Node::Return(_) => self.generate_return(node),
             Node::IfStatement { .. } => self.generate_if_statement(node),
             Node::WhileLoop { .. } => self.generate_while_loop(node),
+            Node::Break => self.generate_break(node),
+            Node::Continue => self.generate_continue(node),
             _ => unreachable!(),
         }
     }

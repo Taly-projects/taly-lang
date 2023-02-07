@@ -730,6 +730,16 @@ impl Parser {
         }, start, end))
     } 
 
+    fn parse_break(&mut self, position: Positioned<()>) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        Ok(position.convert(Node::Break))
+    }
+
+    fn parse_continue(&mut self, position: Positioned<()>) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        Ok(position.convert(Node::Continue))
+    }
+
     fn handle_access(&mut self, access: Positioned<AccessModifier>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let current = self.expect_current(Some("Function, Class, Space, ..".to_string()))?;
@@ -766,6 +776,8 @@ impl Parser {
             Keyword::If => self.parse_if_statement(keyword.start),
             Keyword::While => self.parse_while_loop(keyword.start),
             Keyword::Match => self.parse_match_statement(keyword.start),
+            Keyword::Break => self.parse_break(keyword.convert(())),
+            Keyword::Continue => self.parse_break(keyword.convert(())),
             _ => Err(ParserError::UnexpectedToken(self.current().unwrap(), None))
         }
     }
