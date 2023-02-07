@@ -869,7 +869,21 @@ impl Checker {
     }
 
     fn check_break(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        // TODO: Check if in loop
+        // Check if in loop
+        let mut scope = self.scope.clone();
+        loop {
+            if let ScopeType::Branch { debug_name, .. } = &scope.get().scope {
+                if debug_name == "While" {
+                    break;
+                }
+            };
+
+            if let Some(parent) = scope.get().parent.clone() {
+                scope = parent;
+            } else {
+                return Err(CheckerError::BreakStatementShouldOnlyBeFoundInLoops(node.convert(())))
+            }
+        }
 
         Ok(NodeInfo { 
             checked: node.clone(), 
@@ -880,8 +894,22 @@ impl Checker {
     }
 
     fn check_continue(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        // TODO: Check if in loop
-        
+        // Check if in loop
+        let mut scope = self.scope.clone();
+        loop {
+            if let ScopeType::Branch { debug_name, .. } = &scope.get().scope {
+                if debug_name == "While" {
+                    break;
+                }
+            };
+
+            if let Some(parent) = scope.get().parent.clone() {
+                scope = parent;
+            } else {
+                return Err(CheckerError::ContinueStatementShouldOnlyBeFoundInLoops(node.convert(())))
+            }
+        }
+
         Ok(NodeInfo { 
             checked: node.clone(), 
             data_type: None, 

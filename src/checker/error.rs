@@ -15,7 +15,9 @@ pub enum CheckerError {
     CannotInferType(Positioned<String>),
     CannotAccessAnythingHere(Positioned<()>),
     CannotAccessPrivateMember(Positioned<()>, Positioned<()>),
-    CannotAccessProtectedMember(Positioned<()>, Positioned<()>)
+    CannotAccessProtectedMember(Positioned<()>, Positioned<()>),
+    BreakStatementShouldOnlyBeFoundInLoops(Positioned<()>),
+    ContinueStatementShouldOnlyBeFoundInLoops(Positioned<()>)
 }
 
 impl CheckerError {
@@ -86,6 +88,16 @@ impl CheckerError {
                 ErrorFormat::new(ErrorType::Error)
                     .add_message(format!("Cannot access protected member:"), Some(node.clone()))
                     .add_message(format!("Defined private here:"), Some(definition.clone()))
+                    .set_step("Checker".to_string()).print(src)
+            },
+            CheckerError::BreakStatementShouldOnlyBeFoundInLoops(node) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Break statement should only be found in loops!"), Some(node.clone()))
+                    .set_step("Checker".to_string()).print(src)
+            },
+            CheckerError::ContinueStatementShouldOnlyBeFoundInLoops(node) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Continue statement should only be found in loops!"), Some(node.clone()))
                     .set_step("Checker".to_string()).print(src)
             }
         }
