@@ -1,6 +1,16 @@
 use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::{FunctionDefinitionParameter, VarType, AccessModifier}, symbolizer::trace::Trace};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                             Scoped                                             //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+ 
+#[derive(Clone, Debug)]
+pub struct Scoped<T> {
+    pub data: T,
+    pub scope: Option<MutRef<Scope>>
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                              Scope                                             //
 //////////////////////////////////////////////////////////////////////////////////////////////////// 
 
@@ -13,14 +23,14 @@ pub enum ScopeType {
         name: Positioned<String>,
         params: Vec<FunctionDefinitionParameter>,
         children: Vec<Scope>,
-        return_type: Option<Positioned<String>>,
+        return_type: Option<Scoped<Positioned<String>>>,
         external: bool,
         constructor: bool
     },
     Variable {
         var_type: Positioned<VarType>,
         name: Positioned<String>,
-        data_type: Option<Positioned<String>>,
+        data_type: Option<Scoped<Positioned<String>>>,
         initialized: bool,
     },
     Class {
@@ -203,8 +213,7 @@ impl Scope {
             ScopeType::Root { children } => return Self::get_function_in_children(children, trace, name),
             ScopeType::Variable { data_type, .. } => {
                 if let Some(data_type) = data_type.clone() {
-                    println!("Looking for '{}'", data_type.data);
-                    if let Some(class) = self.get_class(trace.clone(), data_type.data.clone()) {
+                    if let Some(class) = data_type.scope {
                         return class.get().enter_function(trace, name, look_links, true);
                     } else {
                         return None;
@@ -271,7 +280,7 @@ impl Scope {
             ScopeType::Function { children, .. } => Self::get_variable_in_children(children, trace, name),
             ScopeType::Variable { data_type, .. } => {
                 if let Some(data_type) = data_type.clone() {
-                    if let Some(class) = self.get_class(trace.clone(), data_type.data.clone()) {
+                    if let Some(class) = data_type.scope {
                         class.get().enter_variable(trace, name, look_links, true)
                     } else {
                         None

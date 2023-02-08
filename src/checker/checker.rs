@@ -1,4 +1,4 @@
-use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType, AccessModifier, ElifBranch}, checker::error::CheckerError};
+use crate::{symbolizer::{scope::{Scope, ScopeType, Scoped}, trace::Trace}, ir::output::IROutput, util::{position::Positioned, reference::MutRef}, parser::node::{Node, ValueNode, Operator, VarType, AccessModifier, ElifBranch}, checker::error::CheckerError};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Node Info                                           //
@@ -6,7 +6,7 @@ use crate::{symbolizer::{scope::{Scope, ScopeType}, trace::Trace}, ir::output::I
 
 struct NodeInfo {
     pub checked: Positioned<Node>,
-    pub data_type: Option<Positioned<String>>,
+    pub data_type: Option<Scoped<Positioned<String>>>,
     pub selected: Option<MutRef<Scope>>,
     pub function_called: Option<MutRef<Scope>>
 }
@@ -76,25 +76,37 @@ impl Checker {
         match value {
             ValueNode::String(str) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::String(str.clone()))),
-                data_type: Some(node.convert("String".to_string())),
+                data_type: Some(Scoped {
+                    data: node.convert("String".to_string()),
+                    scope: None,
+                }),
                 selected: None,
                 function_called: None
             }),
             ValueNode::Bool(b) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::Bool(b))),
-                data_type: Some(node.convert("Bool".to_string())),
+                data_type: Some(Scoped {
+                    data: node.convert("Bool".to_string()),
+                    scope: None,
+                }),
                 selected: None,
                 function_called: None
             }),
             ValueNode::Integer(num) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::Integer(num))),
-                data_type: Some(node.convert("I32".to_string())),
+                data_type: Some(Scoped {
+                    data: node.convert("I32".to_string()),
+                    scope: None,
+                }),
                 selected: None,
                 function_called: None
             }),
             ValueNode::Decimal(num) => Ok(NodeInfo {
                 checked: node.convert(Node::Value(ValueNode::Decimal(num))),
-                data_type: Some(node.convert("F32".to_string())),
+                data_type: Some(Scoped {
+                    data: node.convert("F32".to_string()),
+                    scope: None,
+                }),
                 selected: None,
                 function_called: None
             }),
@@ -222,7 +234,7 @@ impl Checker {
             let checked_param = self.check_node(param.clone())?;
 
             if let Some(def_param) = def_params.get(index) {
-                self.check_type(param.convert(()), def_param.data_type.clone(), checked_param.data_type)?;
+                self.check_type(param.convert(()), def_param.data_type.clone(), checked_param.data_type.map(|x| x.data))?;
             } else {
                 return Err(CheckerError::TooManyParameters(parameters_len, def_params.len(), name.clone(), function.get().pos.clone()));
             }
@@ -266,7 +278,7 @@ impl Checker {
             let info = self.check_node(*value.clone())?;
             if let Some(def_data_type) = def_data_type {
                 // Check type
-                self.check_type(value.convert(()), def_data_type.clone(), info.data_type)?;
+                self.check_type(value.convert(()), def_data_type.data.clone(), info.data_type.map(|x| x.data))?;
             } else if let Some(info_data_type) = info.data_type {
                 // Infer Type
                 *def_data_type = Some(info_data_type.clone());
@@ -280,7 +292,7 @@ impl Checker {
             checked: node.convert(Node::VariableDefinition { 
                 var_type, 
                 name, 
-                data_type: def_data_type.clone(), 
+                data_type: def_data_type.clone().map(|x| x.data).clone(), 
                 value: value_checked,
                 access
             }), data_type: None,
@@ -367,7 +379,7 @@ impl Checker {
                 }
 
                 if let Some(data_type) = data_type {
-                    self.check_type(rhs.convert(()), data_type.clone(), checked_rhs.data_type)?;
+                    self.check_type(rhs.convert(()), data_type.data.clone(), checked_rhs.data_type.map(|x| x.data))?;
 
                     *initialized = true;
                     return Ok(NodeInfo {
@@ -381,7 +393,7 @@ impl Checker {
                         function_called: None
                     });
                 } else if let Some(rhs_type) = checked_rhs.data_type {
-                    self.inferred.push((selected.get().trace.clone(), rhs_type.clone()));
+                    self.inferred.push((selected.get().trace.clone(), rhs_type.data.clone()));
                     *data_type = Some(rhs_type.clone());
                     *initialized = true;
                     return Ok(NodeInfo {
@@ -456,7 +468,7 @@ impl Checker {
                 function_called: checked_rhs.function_called
             })
         } else if let Some(data_type) = checked_lhs.data_type {
-            if let Some(class) = self.scope.get().get_class(self.trace.clone(), data_type.data.clone()) {
+            if let Some(class) = self.scope.get().get_class(self.trace.clone(), data_type.data.data.clone()) {
                 let prev_scope = self.scope.clone();
                 let prev_trace = self.trace.clone();
                 let prev_selected = self.selected;
@@ -498,7 +510,7 @@ impl Checker {
                     function_called: checked_rhs.function_called
                 })
             } else {
-                return Err(CheckerError::SymbolNotFound(data_type));
+                return Err(CheckerError::SymbolNotFound(data_type.data));
             }
         } else {
             return Err(CheckerError::CannotAccessAnythingHere(lhs.convert(())));
@@ -523,7 +535,7 @@ impl Checker {
 
                 match (checked_lhs.data_type, checked_rhs.data_type) {
                     (Some(lhs_type), Some(rhs_type)) => {
-                        self.check_type(rhs.convert(()), lhs_type.clone(), Some(rhs_type))?;
+                        self.check_type(rhs.convert(()), lhs_type.data.clone(), Some(rhs_type.data))?;
                         return Ok(NodeInfo {
                             checked: node.convert(Node::BinaryOperation { 
                                 lhs: Box::new(checked_lhs.checked), 
@@ -551,14 +563,17 @@ impl Checker {
 
                 match (checked_lhs.data_type, checked_rhs.data_type) {
                     (Some(lhs_type), Some(rhs_type)) => {
-                        self.check_type(rhs.convert(()), lhs_type.clone(), Some(rhs_type))?;
+                        self.check_type(rhs.convert(()), lhs_type.data.clone(), Some(rhs_type.data))?;
                         return Ok(NodeInfo {
                             checked: node.convert(Node::BinaryOperation { 
                                 lhs: Box::new(checked_lhs.checked), 
                                 operator, 
                                 rhs: Box::new(checked_rhs.checked)
                             }),
-                            data_type: Some(node.convert("c_int".to_string())),
+                            data_type: Some(Scoped {
+                                data: node.convert("c_int".to_string()),
+                                scope: None,
+                            }),
                             selected: None,
                             function_called: None
                         })
@@ -626,14 +641,14 @@ impl Checker {
                     }
                 }
 
-                self.check_type(expr.convert(()), return_type.clone(), checked_expr.data_type)?;
+                self.check_type(expr.convert(()), return_type.data.clone(), checked_expr.data_type.map(|x| x.data))?;
                 Some(Box::new(checked_expr.checked))
             } else {
-                return Err(CheckerError::UnexpectedType(node.convert(None), Some(return_type.clone())));
+                return Err(CheckerError::UnexpectedType(node.convert(None), Some(return_type.data.clone())));
             }
         } else if let Some(expr) = expr {
             let checked_expr = self.check_node(*expr.clone())?;
-            return Err(CheckerError::UnexpectedType(node.convert(checked_expr.data_type.map(|x| x.data)), None));
+            return Err(CheckerError::UnexpectedType(node.convert(checked_expr.data_type.map(|x| x.data.data)), None));
         } else {
             None
         };
@@ -736,7 +751,7 @@ impl Checker {
         };
 
         let checked_condition = self.check_node(*condition)?;
-        self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type)?;
+        self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type.map(|x| x.data))?;
 
         let mut checked_body = Vec::new();
         
@@ -763,7 +778,7 @@ impl Checker {
         let mut checked_elif_branches = Vec::new();
         for elif_branch in elif_branches {
             let checked_condition = self.check_node(elif_branch.condition)?;
-            self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type)?;
+            self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type.map(|x| x.data))?;
             
             // Enter Scope
             self.scope = self.scope.get().get_child(self.trace.index);
@@ -833,7 +848,7 @@ impl Checker {
         };
 
         let checked_condition = self.check_node(*condition)?;
-        self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type)?;
+        self.check_type(checked_condition.checked.convert(()), node.convert("c_int".to_string()), checked_condition.data_type.map(|x| x.data))?;
 
         let mut checked_body = Vec::new();
         

@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType, AccessModifier}};
+use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType, Scoped}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType, AccessModifier}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Symbolizer                                          //
@@ -33,11 +33,25 @@ impl Symbolizer {
             unreachable!()
         };
 
+        let return_type_scoped = if let Some(return_type) = return_type {
+            Some(Scoped {
+                data: return_type.clone(), 
+                scope: if let Some(return_type_scope) = scope.get().get_class(Trace::full(), return_type.data) {
+                        Some(return_type_scope.clone())
+                    } else {
+                        None
+                    }
+                }
+            )
+        } else {
+            None
+        };
+
         let function_scope = Scope::new(node.convert(()), ScopeType::Function { 
             name: name.clone(), 
             params: parameters.clone(), 
             children: Vec::new(), 
-            return_type, 
+            return_type: return_type_scoped, 
             external,
             constructor
         }, Some(scope.clone()), self.trace.clone(), access);
@@ -52,10 +66,20 @@ impl Symbolizer {
         // Symbolize Params
         let function_scope_ref = scope.get().get_last();
         for param in parameters {
+            let param_type_scoped = Some(Scoped {
+                data: param.data_type.clone(), 
+                scope: if let Some(param_type_scope) = scope.get().get_class(Trace::full(), param.clone().data_type.data) {
+                        Some(param_type_scope.clone())
+                    } else {
+                        None
+                    }
+                }
+            );
+
             let param_scope = Scope::new(param.get_position(), ScopeType::Variable { 
                 var_type: param.get_position().convert(VarType::Constant), 
                 name: param.name.clone(), 
-                data_type: Some(param.data_type.clone()), 
+                data_type: param_type_scoped, 
                 initialized: true 
             }, Some(function_scope_ref.clone()), Trace::default(), None);
 
@@ -83,10 +107,24 @@ impl Symbolizer {
             unreachable!()
         };
 
+        let data_type_scoped = if let Some(data_type) = data_type {
+            Some(Scoped {
+                data: data_type.clone(), 
+                scope: if let Some(data_type_scope) = scope.get().get_class(Trace::full(), data_type.data) {
+                        Some(data_type_scope.clone())
+                    } else {
+                        None
+                    }
+                }
+            )
+        } else {
+            None
+        };
+
         let variable_scope = Scope::new(node.convert(()), ScopeType::Variable { 
             var_type: var_type.clone(), 
             name: name.clone(), 
-            data_type: data_type.clone(), 
+            data_type: data_type_scoped, 
             initialized: value.is_some() 
         }, Some(scope.clone()), self.trace.clone(), access);
 
