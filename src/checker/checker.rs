@@ -911,7 +911,7 @@ impl Checker {
             } else if !loop_found {
                 return Err(CheckerError::BreakStatementShouldOnlyBeFoundInLoops(node.convert(())))
             } else {
-                todo!("Err could not find label")
+                return Err(CheckerError::SymbolNotFound(label.unwrap()));
             }
         }
 
@@ -951,7 +951,7 @@ impl Checker {
             } else if !loop_found {
                 return Err(CheckerError::ContinueStatementShouldOnlyBeFoundInLoops(node.convert(())))
             } else {
-                todo!("Err could not find label")
+                return Err(CheckerError::SymbolNotFound(label.unwrap()));
             }
         }
 

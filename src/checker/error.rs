@@ -17,7 +17,8 @@ pub enum CheckerError {
     CannotAccessPrivateMember(Positioned<()>, Positioned<()>),
     CannotAccessProtectedMember(Positioned<()>, Positioned<()>),
     BreakStatementShouldOnlyBeFoundInLoops(Positioned<()>),
-    ContinueStatementShouldOnlyBeFoundInLoops(Positioned<()>)
+    ContinueStatementShouldOnlyBeFoundInLoops(Positioned<()>),
+    LabelNotFound(Positioned<String>)
 }
 
 impl CheckerError {
@@ -98,6 +99,11 @@ impl CheckerError {
             CheckerError::ContinueStatementShouldOnlyBeFoundInLoops(node) => {
                 ErrorFormat::new(ErrorType::Error)
                     .add_message(format!("Continue statement should only be found in loops!"), Some(node.clone()))
+                    .set_step("Checker".to_string()).print(src)
+            }
+            CheckerError::LabelNotFound(name) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Label '{}' not found!", name.data), Some(name.convert(())))
                     .set_step("Checker".to_string()).print(src)
             }
         }
