@@ -68,7 +68,8 @@ pub enum Keyword {
     Do,
     Match,
     Break,
-    Continue
+    Continue,
+    Intf
 }
 
 impl Keyword {
@@ -102,6 +103,7 @@ impl Keyword {
             "match" => Some(Keyword::Match),
             "break" => Some(Keyword::Break),
             "continue" => Some(Keyword::Continue),
+            "intf" => Some(Keyword::Intf),
             _ => None
         }
     }

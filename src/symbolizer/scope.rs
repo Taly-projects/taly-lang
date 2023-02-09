@@ -43,6 +43,10 @@ pub enum ScopeType {
         children: Vec<Scope>,
         linked_class: bool
     },
+    Interface {
+        name: Positioned<String>,
+        children: Vec<Scope>,
+    },
     Branch {
         label: Option<Positioned<String>>,
         debug_name: String,
@@ -90,6 +94,7 @@ impl Scope {
             ScopeType::Variable { name, data_type, .. } => format!("Variable({:?}, {})", data_type, name.data),
             ScopeType::Class { name, .. } => format!("Class({})", name.data),
             ScopeType::Space { name, .. } => format!("Space({})", name.data),
+            ScopeType::Interface { name, .. } => format!("Interface({})", name.data),
             ScopeType::Branch { debug_name, .. } => format!("Branch({})", debug_name),
         }
     }
@@ -107,6 +112,7 @@ impl Scope {
             ScopeType::Variable { name, .. } => return name.data.clone(),
             ScopeType::Class { name, .. } => buf.push_str(&name.data),
             ScopeType::Space { name, .. } => buf.push_str(&name.data),
+            ScopeType::Interface { name, .. } => buf.push_str(&name.data),
             _ => {}
         }
 
@@ -140,7 +146,8 @@ impl Scope {
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
             ScopeType::Space { children, .. } |
-            ScopeType::Branch { children, .. } => {
+            ScopeType::Branch { children, .. } |
+            ScopeType::Interface { children, .. } => {
                 children.push(scope);
             }
             _ => {
@@ -155,7 +162,8 @@ impl Scope {
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
             ScopeType::Space { children, .. } |
-            ScopeType::Branch { children, .. } => {
+            ScopeType::Branch { children, .. } |
+            ScopeType::Interface { children, .. } => {
                 MutRef::new(children.last_mut().unwrap())
             }
             _ => {
@@ -170,7 +178,8 @@ impl Scope {
             ScopeType::Function { children, .. } |
             ScopeType::Class { children, .. } |
             ScopeType::Space { children, .. } |
-            ScopeType::Branch { children, .. } => {
+            ScopeType::Branch { children, .. } |
+            ScopeType::Interface { children, .. } => {
                 for child in children {
                     if child.trace.index == index {
                         return MutRef::new(child);
@@ -236,6 +245,7 @@ impl Scope {
                 }
             },
             ScopeType::Space { children, .. } => return Self::get_function_in_children(children, trace, name),
+            ScopeType::Interface { children, .. } if allow_fields => return Self::get_function_in_children(children, trace, name),
             _ => return None
         }
 
@@ -333,7 +343,6 @@ impl Scope {
             return Some(fun);
         }
         if let Some(parent) = &self.parent {
-            println!("Looking for {}, Parent {:#?}", name, parent.get().short_name());
             if trace.full {
                 return parent.get().get_class(trace, name);
             } else {
@@ -371,6 +380,39 @@ impl Scope {
                 return parent.get().get_space(trace, name);
             } else {
                 return parent.get().get_space(*trace.parent.unwrap(), name);
+            }
+        }
+        None
+    }
+
+    pub fn enter_interface(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        match &mut self.scope {
+            ScopeType::Root { children } |
+            ScopeType::Function { children, .. } |
+            ScopeType::Class { children, .. } |
+            ScopeType::Space { children, .. } => {
+                for child in children.iter_mut() {
+                    if let ScopeType::Interface { name: c_name, .. } = &child.scope {
+                        if c_name.data == name && (trace.full || child.trace.index <= trace.index) {
+                            return Some(MutRef::new(child));
+                        }
+                    }
+                }
+                None
+            },
+            _ => None,
+        }
+    }
+
+    pub fn get_interface(&mut self, trace: Trace, name: String) -> Option<MutRef<Scope>> {
+        if let Some(fun) = self.enter_interface(trace.clone(), name.clone()) {
+            return Some(fun);
+        }
+        if let Some(parent) = &self.parent {
+            if trace.full {
+                return parent.get().get_interface(trace, name);
+            } else {
+                return parent.get().get_interface(*trace.parent.unwrap(), name);
             }
         }
         None

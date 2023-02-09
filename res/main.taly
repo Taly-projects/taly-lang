@@ -1,15 +1,23 @@
-use "std-stdio"
+pub space Number
 
-extern fn printf(msg: c_string)
+    pub class I32
+        var inner: c_int
 
-fn factorial(n: c_int): c_int =>
-    if n <= 1 then return 1
-    else return factorial(n - 1) end
-    return 0
+        pub new create(inner: c_int) =>
+            self.inner = inner
+            self.add_one()
+
+        pub fn add_one() =>
+            self.inner = self.inner + 1
+
+pub space Test
+
+    pub fn zero(): I32 => Number.I32.create(0)
+
+pub intf ToCString
+
+    pub fn to_c_string(): c_string
 
 fn main() =>
-    var i: c_int = 0
-    $A: while 1 do
-        if i == 4 then break $A end
-        i = i + 1
-    end
+    const x = Number.I32.create(0)
+    x.add_one() 

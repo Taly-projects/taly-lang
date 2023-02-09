@@ -70,6 +70,11 @@ pub enum Node {
         name: Positioned<String>,
         inner: Box<Positioned<Node>>
     },
+    InterfaceDefinition {
+        name: Positioned<String>,
+        body: Vec<Positioned<Node>>,
+        access: Option<Positioned<AccessModifier>>
+    },
     // Compiler Specific Annotation
     _Unchecked(Box<Positioned<Node>>),
     _Optional(Box<Positioned<Node>>),
@@ -132,6 +137,7 @@ impl Node {
             Node::Break(_) => format!("break"),
             Node::Continue(_) => format!("continue"),
             Node::Label { name, .. } => format!("Label({})", name.data),
+            Node::InterfaceDefinition { name, .. } => format!("Interface({})", name.data),
             Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
             Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),

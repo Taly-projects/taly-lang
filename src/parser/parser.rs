@@ -760,6 +760,27 @@ impl Parser {
         Ok(position.convert(Node::Continue(label)))
     }
 
+    fn parse_interface_definition(&mut self, start: Position, access: Option<Positioned<AccessModifier>>) -> Result<Positioned<Node>, ParserError> {
+        self.advance();
+        let name = self.expect_id()?;
+        self.advance();
+        let mut end = name.end.clone();
+
+        self.tabs += 1;
+        let mut body = Vec::new();
+        self.parse_body(&mut body)?;
+        if let Some(last) = body.last() {
+            end = last.end.clone();
+        }
+        self.tabs -= 1;
+
+        Ok(Positioned::new(Node::InterfaceDefinition { 
+            name, 
+            body,
+            access
+        }, start, end))
+    }
+
     fn handle_access(&mut self, access: Positioned<AccessModifier>) -> Result<Positioned<Node>, ParserError> {
         self.advance();
         let current = self.expect_current(Some("Function, Class, Space, ..".to_string()))?;
@@ -770,6 +791,7 @@ impl Parser {
             Token::Keyword(Keyword::Const) => self.parse_variable_definition(access.start.clone(), current.convert(VarType::Constant), Some(access)),
             Token::Keyword(Keyword::Class) => self.parse_class_definition(access.start.clone(), Some(access)),
             Token::Keyword(Keyword::Space) => self.parse_space_definition(access.start.clone(), Some(access)),
+            Token::Keyword(Keyword::Intf) => self.parse_interface_definition(access.start.clone(), Some(access)),
             _ => Err(ParserError::UnexpectedToken(current, Some("Function, Class, Space, ..".to_string())))
         }
     }
@@ -798,6 +820,7 @@ impl Parser {
             Keyword::Match => self.parse_match_statement(keyword.start),
             Keyword::Break => self.parse_break(keyword.convert(())),
             Keyword::Continue => self.parse_continue(keyword.convert(())),
+            Keyword::Intf => self.parse_interface_definition(keyword.start, None),
             _ => Err(ParserError::UnexpectedToken(self.current().unwrap(), None))
         }
     }

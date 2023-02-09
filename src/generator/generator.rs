@@ -26,7 +26,7 @@ impl Generator {
         self.index += 1;
     }
 
-    fn generate_type(&mut self, data_type: String) -> String {
+    pub fn generate_type(data_type: String) -> String {
         match data_type.as_str() {
             "c_string" => "const char*".to_string(),
             "c_int" => "int".to_string(),
@@ -52,7 +52,7 @@ impl Generator {
             ValueNode::Bool(b) => (true, format!("{}", b)),
             ValueNode::Integer(num) => (true, format!("{}", num)),
             ValueNode::Decimal(num) => (true, format!("{}", num)),
-            ValueNode::Type(str) => (true, self.generate_type(str)),
+            ValueNode::Type(str) => (true, Self::generate_type(str)),
         }
     }
 
@@ -84,7 +84,7 @@ impl Generator {
 
         let mut buf = String::new();
 
-        buf.push_str(&self.generate_type(data_type.expect("No type could be inferred!").data));
+        buf.push_str(&Self::generate_type(data_type.expect("No type could be inferred!").data));
         buf.push(' ');
         buf.push_str(&name.data);
         
@@ -338,7 +338,7 @@ impl Generator {
         }
 
         let mut function_header = String::new();
-        function_header.push_str(&self.generate_type(return_type.map_or("void".to_string(), |x| x.data)));
+        function_header.push_str(&Self::generate_type(return_type.map_or("void".to_string(), |x| x.data)));
         function_header.push(' ');
         function_header.push_str(&name.data);
         function_header.push('(');
@@ -347,7 +347,7 @@ impl Generator {
             if index != 0 {
                 function_header.push_str(", ");
             }
-            function_header.push_str(&self.generate_type(param.data_type.data));
+            function_header.push_str(&Self::generate_type(param.data_type.data));
             function_header.push(' ');
             function_header.push_str(&param.name.data);
             index += 1;
@@ -412,7 +412,7 @@ impl Generator {
             };
 
             struct_buf.push_str("\t");
-            struct_buf.push_str(&self.generate_type(data_type.expect("No Type Could be inferred!").data));
+            struct_buf.push_str(&Self::generate_type(data_type.expect("No Type Could be inferred!").data));
             struct_buf.push_str(" ");
             struct_buf.push_str(&name.data);
             struct_buf.push_str(";");
@@ -432,7 +432,6 @@ impl Generator {
         }
     }
 
-
     fn generate_space_definition(&mut self, node: Positioned<Node>, file: &mut File) {
         let Node::SpaceDefinition { body, .. } = node.data.clone() else {
             unreachable!()
@@ -442,11 +441,13 @@ impl Generator {
         let mut methods = Vec::new();
         let mut spaces = Vec::new();
         let mut classes = Vec::new();
+        let mut interfaces = Vec::new();
         for node in body.iter() {
             match node.data {
                 Node::FunctionDefinition { .. } => methods.push(node.clone()),
                 Node::SpaceDefinition { .. } => spaces.push(node.clone()),
                 Node::ClassDefinition { .. } => classes.push(node.clone()),
+                Node::InterfaceDefinition { .. } => interfaces.push(node.clone()),
                 _ => unreachable!()
             }
         }
@@ -463,9 +464,73 @@ impl Generator {
             self.generate_class_definition(class.clone(), file);
         }
 
+        for interface in interfaces.iter() {
+            self.generate_interface_definition(interface.clone(), file);
+        }
+
         for space in spaces.iter() {
             self.generate_space_definition(space.clone(), file);
         }
+    }
+
+    fn generate_interface_definition(&mut self, node: Positioned<Node>, file: &mut File) {
+        let Node::InterfaceDefinition { name, body, .. } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Separate methods
+        let mut methods = Vec::new();
+        for node in body.iter() {
+            match &node.data {
+                Node::FunctionDefinition { body, .. } => {
+                    methods.push(node.clone());
+                    if !body.is_empty() {
+                        todo!("Default functions not implement for interface yet!")
+                    }
+                }
+                _ => unreachable!()
+            }
+        }
+
+        // Create Structure
+        let mut struct_buf = String::new();
+        struct_buf.push_str("typedef struct ");
+        struct_buf.push_str(&name.data);
+        struct_buf.push_str(" { ");
+        if !methods.is_empty() {
+            struct_buf.push_str("\n");
+        }
+        for method in methods.iter() {
+            let Node::FunctionDefinition { name, parameters, return_type, .. } = method.data.clone() else {
+                unreachable!()
+            };
+
+            struct_buf.push_str("\t");
+            struct_buf.push_str(&Self::generate_type(return_type.map_or("void".to_string(), |x| x.data)));
+            struct_buf.push_str(" (*");
+            struct_buf.push_str(&name.data);
+            struct_buf.push_str(")(");
+            let mut first = false;
+            for param in parameters {
+                if first {
+                    struct_buf.push_str(", ");
+                }
+                struct_buf.push_str(&Self::generate_type(param.data_type.data));
+                first = false;
+            }
+            struct_buf.push_str(");\n");
+        }
+        struct_buf.push_str("} ");
+        struct_buf.push_str(&name.data);
+        struct_buf.push_str(";\n\n");
+
+        file.header.push_str(&struct_buf);
+
+        // for method in methods.iter() {
+        //     let fun_file = self.generate_root_function_definition(method.clone());
+        //     file.header.push_str(&fun_file.header);
+        //     file.src.push_str(&fun_file.src);
+        // }
     }
 
     pub fn generate(&mut self) -> Project {
@@ -481,6 +546,7 @@ impl Generator {
                 }
                 Node::ClassDefinition { .. } => self.generate_class_definition(node, project.get_file("main".to_string())),
                 Node::SpaceDefinition { .. } => self.generate_space_definition(node, project.get_file("main".to_string())),
+                Node::InterfaceDefinition { .. } => self.generate_interface_definition(node, project.get_file("main".to_string())),
                 _ => unreachable!()
             }
             self.advance();

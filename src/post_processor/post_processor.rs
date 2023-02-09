@@ -243,6 +243,23 @@ impl PostProcessor {
         })
     }
 
+    fn process_interface_definition(&mut self, node: Positioned<Node>) -> Positioned<Node> {
+        let Node::InterfaceDefinition { name, body, access } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut new_body = Vec::new();
+        for node in body {
+            new_body.push(self.process_node(node, None));
+        }
+
+        node.convert(Node::InterfaceDefinition { 
+            name, 
+            body: new_body, 
+            access 
+        })
+    }
+
     fn process_node(&mut self, node: Positioned<Node>, new_name: Option<String>) -> Positioned<Node> {
         match node.data.clone() {
             Node::Value(_) => node,
@@ -263,6 +280,7 @@ impl PostProcessor {
             Node::Break(_) => self.process_break(node),
             Node::Continue(_) => self.process_continue(node),
             Node::Label { .. } => self.process_label(node),
+            Node::InterfaceDefinition { .. } => self.process_interface_definition(node),
             Node::_Unchecked(inner) => self.process_node(*inner, None),
             Node::_Optional(inner) => self.process_node(*inner, None),
             Node::_Renamed { name, node } => self.process_node(*node, Some(name))

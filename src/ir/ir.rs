@@ -481,6 +481,7 @@ impl IRGenerator {
             Node::FunctionDefinition { constructor, .. } if !constructor => self.generate_function_definition(node, None, false),
             Node::ClassDefinition { .. } => self.generate_class_definition(node),
             Node::SpaceDefinition { .. } => self.generate_space_definition(node),
+            Node::InterfaceDefinition { .. } => self.generate_interface_definition(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
@@ -662,6 +663,31 @@ impl IRGenerator {
         Ok(pre)
     }
 
+    fn generate_interface_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        let Node::InterfaceDefinition { name, body, access } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let mut new_body = Vec::new();
+        for node in body.iter() {
+            new_body.append(&mut self.generate_interface_definition_body(node.clone())?);
+        }
+
+        Ok(vec![node.convert(Node::InterfaceDefinition { 
+            name, 
+            body: new_body,
+            access
+        })])
+    }
+
+    fn generate_interface_definition_body(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
+        match node.data {
+            Node::FunctionDefinition { constructor, .. } if !constructor => self.generate_function_definition(node, None, false),
+            Node::_Unchecked(_) => Ok(vec![node]),
+            _ => Err(IRError::UnexpectedNode(node, None)),
+        }
+    }
+
     pub fn generate(&mut self) -> Result<IROutput, IRError> {
         let mut output = IROutput {
             includes: Vec::new(),
@@ -673,6 +699,7 @@ impl IRGenerator {
                 Node::FunctionDefinition { constructor, .. } if !constructor => output.ast.append(&mut self.generate_function_definition(current, None, true)?),
                 Node::ClassDefinition { .. } => output.ast.append(&mut self.generate_class_definition(current)?),
                 Node::SpaceDefinition { .. } => output.ast.append(&mut self.generate_space_definition(current)?),
+                Node::InterfaceDefinition { .. } => output.ast.append(&mut self.generate_interface_definition(current)?),
                 Node::_Unchecked(_) => output.ast.push(current),
                 Node::Use(path) => {
                     for include in output.includes.iter() {

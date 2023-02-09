@@ -339,6 +339,36 @@ impl Symbolizer {
         Ok(())
     }
 
+    fn symbolize_interface_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
+        let Node::InterfaceDefinition { name, body, access } = node.data.clone() else {
+            unreachable!()
+        };
+
+        let interface_scope = Scope::new(node.convert(()), ScopeType::Interface { 
+            name: name.clone(), 
+            children: Vec::new()
+        }, Some(scope.clone()), self.trace.clone(), access);
+
+        // Check if unique
+        if let Some(previous) = scope.get().enter_interface(Trace::full(), name.data.clone()) {
+            return Err(SymbolizerError::SymbolAlreadyDefined(name, previous.get().pos.clone()));
+        }
+
+        scope.get().add_child(interface_scope);
+
+        let interface_scope_ref = scope.get().get_last();
+
+        // Symbolize children
+        self.trace = Trace::new(0, self.trace.clone());
+        for node in body {
+            self.symbolize_node(node, interface_scope_ref.clone())?;
+            self.trace.index += 1;
+        }
+        self.trace = *self.trace.clone().parent.unwrap();
+
+        Ok(())
+    }
+
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
@@ -349,6 +379,7 @@ impl Symbolizer {
             Node::IfStatement { .. } => self.symbolize_if_statement(node, scope),
             Node::WhileLoop { .. } => self.symbolize_while_loop(node, scope),
             Node::Label { .. } => self.symbolize_label(node, scope),
+            Node::InterfaceDefinition { .. } => self.symbolize_interface_definition(node, scope),
             Node::_Unchecked(inner) => self.symbolize_node(*inner, scope),
             _ => Ok(())
         }

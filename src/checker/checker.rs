@@ -980,6 +980,48 @@ impl Checker {
             function_called: None
         })
     }
+
+    fn check_interface_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
+        let Node::InterfaceDefinition { name, body, access } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Enter Scope
+        if let Some(interface) = self.scope.get().enter_interface(self.trace.clone(), name.data.clone()) {
+            self.scope = interface;
+        } else {
+            unreachable!("Symbol '{}' not found", name.data);
+        }
+
+        // Check Body
+        let mut new_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
+        for child in body {
+            let checked_child = self.check_node(child)?;
+            new_body.push(checked_child.checked);
+            self.trace.index += 1;
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
+        }
+
+        Ok(NodeInfo {
+            checked: node.convert(Node::InterfaceDefinition { 
+                name, 
+                body: new_body,
+                access
+            }),
+            data_type: None,
+            selected: None,
+            function_called: None
+        })
+    }
  
     fn check_node(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
         match node.data {
@@ -1000,6 +1042,7 @@ impl Checker {
             Node::Break(_) => self.check_break(node),
             Node::Continue(_) => self.check_continue(node),
             Node::Label { .. } => self.check_label(node),
+            Node::InterfaceDefinition { .. } => self.check_interface_definition(node),
             Node::_Unchecked(inner) => Ok(NodeInfo { 
                 checked: *inner, 
                 data_type: None, 
@@ -1017,7 +1060,8 @@ impl Checker {
             ScopeType::Class { children, .. } |
             ScopeType::Function { children, .. } |
             ScopeType::Space {children, .. } |
-            ScopeType::Branch { children, .. } => {
+            ScopeType::Branch { children, .. } |
+            ScopeType::Interface { children, .. } => {
                 for scope in children.iter() {
                     self.check_inference(scope)?;
                 }
