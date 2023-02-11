@@ -18,7 +18,9 @@ pub enum CheckerError {
     CannotAccessProtectedMember(Positioned<()>, Positioned<()>),
     BreakStatementShouldOnlyBeFoundInLoops(Positioned<()>),
     ContinueStatementShouldOnlyBeFoundInLoops(Positioned<()>),
-    LabelNotFound(Positioned<String>)
+    LabelNotFound(Positioned<String>),
+    FunctionNotImplemented(Positioned<String>, Positioned<String>),
+    FunctionNotMatching(Positioned<String>, Positioned<String>, Positioned<()>),
 }
 
 impl CheckerError {
@@ -104,6 +106,19 @@ impl CheckerError {
             CheckerError::LabelNotFound(name) => {
                 ErrorFormat::new(ErrorType::Error)
                     .add_message(format!("Label '{}' not found!", name.data), Some(name.convert(())))
+                    .set_step("Checker".to_string()).print(src)
+            }
+            CheckerError::FunctionNotImplemented(fun, from) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Function '{}' is not implemented!", fun.data), Some(fun.convert(())))
+                    .add_message(format!("From '{}'", from.data), Some(from.convert(())))
+                    .set_step("Checker".to_string()).print(src)
+            }
+            CheckerError::FunctionNotMatching(fun, from, defined) => {
+                ErrorFormat::new(ErrorType::Error)
+                    .add_message(format!("Function '{}' is not implemented correctly!", fun.data), Some(fun.convert(())))
+                    .add_message(format!("From '{}':", from.data), Some(from.convert(())))
+                    .add_message(format!("Defined here:"), Some(defined.convert(())))
                     .set_step("Checker".to_string()).print(src)
             }
         }

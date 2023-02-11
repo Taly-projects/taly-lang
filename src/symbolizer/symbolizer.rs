@@ -146,7 +146,7 @@ impl Symbolizer {
     }
 
     fn symbolize_class_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
-        let Node::ClassDefinition { name, body, access } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, access, extensions } = node.data.clone() else {
             unreachable!()
         };
 
@@ -161,10 +161,21 @@ impl Symbolizer {
             false
         };
 
+        // Process extensions
+        let mut extensions_scope = Vec::new();
+        for extension in extensions {
+            if let Some(interface_scope) = scope.get().get_interface(Trace::full(), extension.data.clone()) {
+                extensions_scope.push(interface_scope.clone());
+            } else {
+                return Err(SymbolizerError::SymbolNotFound(extension));
+            }
+        }
+
         let class_scope = Scope::new(node.convert(()), ScopeType::Class { 
             name: name.clone(), 
             children: Vec::new(),
-            linked_space
+            linked_space,
+            extensions: extensions_scope
         }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique

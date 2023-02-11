@@ -42,7 +42,8 @@ pub enum Node {
     ClassDefinition {
         name: Positioned<String>,
         body: Vec<Positioned<Node>>,
-        access: Option<Positioned<AccessModifier>>
+        access: Option<Positioned<AccessModifier>>,
+        extensions: Vec<Positioned<String>>
     },
     SpaceDefinition {
         name: Positioned<String>,
@@ -202,6 +203,38 @@ impl ToString for DataType {
         }
     }
 
+}
+
+impl PartialEq for DataType {
+    
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Custom(l0), Self::Custom(r0)) => l0 == r0,
+            (Self::Function { return_type: l_return_type, params: l_params }, Self::Function { return_type: r_return_type, params: r_params }) => {
+                match (l_return_type, r_return_type) {
+                    (None, None) => {}
+                    (Some(l), Some(r)) if l.data == r.data => {},
+                    (_, _) => return false
+                }
+                
+                'A: for l_param in l_params.iter() {
+                    for r_param in r_params.iter() {
+                        if l_param.data == r_param.data {
+                            continue 'A;
+                        }
+                    }
+                    return false;
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+}
+
+impl Eq for DataType {
+    
 }
 
 

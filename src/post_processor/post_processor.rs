@@ -131,7 +131,7 @@ impl PostProcessor {
     }
 
     fn process_class_definition(&mut self, node: Positioned<Node>) -> Positioned<Node> {
-        let Node::ClassDefinition { name, body, access } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, access, extensions } = node.data.clone() else {
             unreachable!()
         };
 
@@ -143,7 +143,8 @@ impl PostProcessor {
         node.convert(Node::ClassDefinition { 
             name, 
             body: new_body, 
-            access 
+            access,
+            extensions
         })
     }
 
@@ -310,7 +311,8 @@ impl PostProcessor {
         node.convert(Node::ClassDefinition { 
             name: interface_name, 
             body: new_body, 
-            access 
+            access,
+            extensions: Vec::new()
         })
     }
 

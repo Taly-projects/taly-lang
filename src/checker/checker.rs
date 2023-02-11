@@ -667,7 +667,7 @@ impl Checker {
     }
 
     fn check_class_definition(&mut self, node: Positioned<Node>) -> Result<NodeInfo, CheckerError> {
-        let Node::ClassDefinition { name, body, access } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, access, extensions } = node.data.clone() else {
             unreachable!()
         };
 
@@ -676,6 +676,74 @@ impl Checker {
             self.scope = class;
         } else {
             unreachable!("Symbol '{}' not found", name.data);
+        }
+
+        // Check if all functions are implemented
+        let ScopeType::Class { extensions: extensions_scope, children, .. } = self.scope.get().clone().scope else {
+            unreachable!()
+        };
+
+        // Retrieve all the necessary functions
+        let mut index = 0;
+        for extension in extensions_scope.iter() {
+            let ScopeType::Interface { children: intf_children, .. } = extension.get().scope.clone() else {
+                continue;
+            };
+            'B: for intf_child in intf_children {
+                let ScopeType::Function { name: intf_fun_name, params: intf_fun_params, return_type: intf_fun_return_type, .. } = intf_child.scope else {
+                    continue;
+                };
+                // Check if the class contains the same function
+                for child in children.iter() {
+                    let ScopeType::Function { name: class_fun_name, params: class_fun_params, return_type: class_fun_return_type, constructor, .. } = &child.scope else {
+                        continue;
+                    };
+
+                    // Check if same name
+                    if intf_fun_name.data != class_fun_name.data {
+                        continue;
+                    }
+
+                    // Check access
+                    match (intf_child.access, &child.access) {
+                        (None, None) => {},
+                        (Some(lhs), Some(rhs)) if lhs.data == rhs.data => {},
+                        (_, _) => return Err(CheckerError::FunctionNotMatching(class_fun_name.clone(), extensions[index].clone(), intf_child.pos.clone()))
+                    }
+
+                    // Check if not a constructor 
+                    if *constructor {
+                        return Err(CheckerError::FunctionNotMatching(class_fun_name.clone(), extensions[index].clone(), intf_child.pos.clone()));
+                    }
+
+                    // Check if same return type
+                    match (intf_fun_return_type, class_fun_return_type) {
+                        (None, None) => {},
+                        (Some(lhs), Some(rhs)) if lhs.data.data == rhs.data.data => {},
+                        (_, _) => return Err(CheckerError::FunctionNotMatching(class_fun_name.clone(), extensions[index].clone(), intf_child.pos.clone()))
+                    }
+
+                    // Check if contains all params
+                    if intf_fun_params.len() + 1 != class_fun_params.len() {
+                        return Err(CheckerError::FunctionNotMatching(class_fun_name.clone(), extensions[index].clone(), intf_child.pos.clone()));
+                    }
+
+                    'D: for intf_fun_param in intf_fun_params.iter() {
+                        for class_fun_param in class_fun_params.iter() {
+                            if intf_fun_param.name.data == class_fun_param.name.data {
+                                if intf_fun_param.data_type.data == class_fun_param.data_type.data {
+                                    continue 'D;
+                                }
+                            }
+                        }
+                        return Err(CheckerError::FunctionNotMatching(class_fun_name.clone(), extensions[index].clone(), intf_child.pos.clone()));
+                    }
+
+                    continue 'B;
+                }
+                return Err(CheckerError::FunctionNotImplemented(intf_fun_name.clone(), extensions[index].clone()));
+            }
+            index += 1;
         }
 
         // Check Body
@@ -700,7 +768,8 @@ impl Checker {
             checked: node.convert(Node::ClassDefinition { 
                 name, 
                 body: new_body,
-                access
+                access,
+                extensions
             }),
             data_type: None,
             selected: None,

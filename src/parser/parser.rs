@@ -487,6 +487,26 @@ impl Parser {
         let name = self.expect_id()?;
         self.advance();
         let mut end = name.end.clone();
+        let mut extensions = Vec::new();
+        if let Some(current) = self.current() {
+            if current.data == Token::Colon {
+                self.advance();
+                loop {
+                    let id = self.expect_id()?;
+                    extensions.push(id);
+                    self.advance();
+                    if let Some(current) = self.current() {
+                        if current.data != Token::Comma {
+                            break;
+                        } else {
+                            self.advance();
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
 
         self.tabs += 1;
         let mut body = Vec::new();
@@ -499,7 +519,8 @@ impl Parser {
         Ok(Positioned::new(Node::ClassDefinition { 
             name, 
             body,
-            access
+            access,
+            extensions
         }, start, end))
     }
 

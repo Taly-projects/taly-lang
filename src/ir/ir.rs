@@ -371,7 +371,7 @@ impl IRGenerator {
     }
 
     fn generate_class_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
-        let Node::ClassDefinition { name, body, access } = node.data.clone() else {
+        let Node::ClassDefinition { name, body, access, extensions } = node.data.clone() else {
             unreachable!()
         };
 
@@ -446,7 +446,8 @@ impl IRGenerator {
         Ok(vec![node.convert(Node::ClassDefinition { 
             name, 
             body: new_body,
-            access
+            access,
+            extensions
         })])
     }
 

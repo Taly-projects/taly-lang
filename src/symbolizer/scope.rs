@@ -36,7 +36,8 @@ pub enum ScopeType {
     Class {
         name: Positioned<String>,
         children: Vec<Scope>,
-        linked_space: bool
+        linked_space: bool,
+        extensions: Vec<MutRef<Scope>>
     },
     Space {
         name: Positioned<String>,

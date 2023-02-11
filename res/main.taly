@@ -1,23 +1,15 @@
-pub space Number
-
-    pub class I32
-        var inner: c_int
-
-        pub new create(inner: c_int) =>
-            self.inner = inner
-            self.add_one()
-
-        pub fn add_one() =>
-            self.inner = self.inner + 1
-
-pub space Test
-
-    pub fn zero(): I32 => Number.I32.create(0)
-
 pub intf ToCString
 
     pub fn to_c_string(): c_string
 
+pub class String: ToCString
+
+    var c_str: c_string
+
+    pub new create(c_str: c_string) =>
+        self.c_str = c_str
+
+    pub fn to_c_string(): c_string => self.c_str
+
 fn main() =>
-    const x = Number.I32.create(0)
-    x.add_one() 
+    const str: String = String.create("Hello")
