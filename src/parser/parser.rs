@@ -1,4 +1,4 @@
-use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator, AccessModifier, ElifBranch, MatchBranch}}};
+use crate::{lexer::tokens::{Token, Keyword}, util::position::{Positioned, Position}, parser::{error::ParserError, node::{Node, ValueNode, FunctionDefinitionParameter, VarType, Operator, AccessModifier, ElifBranch, MatchBranch, DataType}}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Parser                                             //
@@ -370,7 +370,8 @@ impl Parser {
             self.expect_token(Token::Colon)?;
             self.advance();
             // Type
-            let data_type = self.expect_id()?;
+            let id = self.expect_id()?;
+            let data_type = id.clone().convert(DataType::Custom(id.data));
             self.advance();
             // Push
             parameters.push(FunctionDefinitionParameter::new(param_name, data_type));
@@ -389,7 +390,8 @@ impl Parser {
         if let Some(current) = self.current() {
             if current.data == Token::Colon {
                 self.advance();
-                return_type = Some(self.expect_id()?);
+                let id = self.expect_id()?;
+                return_type = Some(id.clone().convert(DataType::Custom(id.data)));
                 end = return_type.as_ref().unwrap().end.clone();
                 self.advance();
             }
@@ -433,7 +435,8 @@ impl Parser {
         if let Some(current) = self.current() {
             if current.data == Token::Colon {
                 self.advance();
-                data_type = Some(self.expect_id()?);
+                let id= self.expect_id()?;
+                data_type = Some(id.clone().convert(DataType::Custom(id.data)));
                 end = self.current().unwrap().end.clone();
                 self.advance();
             }

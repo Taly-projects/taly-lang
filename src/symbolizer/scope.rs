@@ -1,4 +1,4 @@
-use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::{FunctionDefinitionParameter, VarType, AccessModifier}, symbolizer::trace::Trace};
+use crate::{util::{reference::MutRef, position::{Positioned, Position}}, parser::node::{FunctionDefinitionParameter, VarType, AccessModifier, DataType}, symbolizer::trace::Trace};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Scoped                                             //
@@ -23,14 +23,14 @@ pub enum ScopeType {
         name: Positioned<String>,
         params: Vec<FunctionDefinitionParameter>,
         children: Vec<Scope>,
-        return_type: Option<Scoped<Positioned<String>>>,
+        return_type: Option<Scoped<Positioned<DataType>>>,
         external: bool,
         constructor: bool
     },
     Variable {
         var_type: Positioned<VarType>,
         name: Positioned<String>,
-        data_type: Option<Scoped<Positioned<String>>>,
+        data_type: Option<Scoped<Positioned<DataType>>>,
         initialized: bool,
     },
     Class {

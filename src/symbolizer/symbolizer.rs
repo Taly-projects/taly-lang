@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType, Scoped}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType, AccessModifier}};
+use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType, Scoped}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType, AccessModifier, DataType}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Symbolizer                                          //
@@ -36,11 +36,14 @@ impl Symbolizer {
         let return_type_scoped = if let Some(return_type) = return_type {
             Some(Scoped {
                 data: return_type.clone(), 
-                scope: if let Some(return_type_scope) = scope.get().get_class(Trace::full(), return_type.data) {
+                scope: match return_type.data {
+                    DataType::Custom(custom) => if let Some(return_type_scope) = scope.get().get_class(Trace::full(), custom) {
                         Some(return_type_scope.clone())
                     } else {
                         None
-                    }
+                    },
+                    DataType::Function { .. } => None,
+                }
                 }
             )
         } else {
@@ -68,13 +71,15 @@ impl Symbolizer {
         for param in parameters {
             let param_type_scoped = Some(Scoped {
                 data: param.data_type.clone(), 
-                scope: if let Some(param_type_scope) = scope.get().get_class(Trace::full(), param.clone().data_type.data) {
+                scope: match param.data_type.data.clone() {
+                    DataType::Custom(inner) => if let Some(param_type_scope) = scope.get().get_class(Trace::full(), inner) {
                         Some(param_type_scope.clone())
                     } else {
                         None
-                    }
+                    },
+                    DataType::Function { .. } => None
                 }
-            );
+            });
 
             let param_scope = Scope::new(param.get_position(), ScopeType::Variable { 
                 var_type: param.get_position().convert(VarType::Constant), 
@@ -110,13 +115,15 @@ impl Symbolizer {
         let data_type_scoped = if let Some(data_type) = data_type {
             Some(Scoped {
                 data: data_type.clone(), 
-                scope: if let Some(data_type_scope) = scope.get().get_class(Trace::full(), data_type.data) {
+                scope: match data_type.data {
+                    DataType::Custom(inner) => if let Some(data_type_scope) = scope.get().get_class(Trace::full(), inner) {
                         Some(data_type_scope.clone())
                     } else {
                         None
-                    }
+                    },
+                    DataType::Function { .. } => None
                 }
-            )
+            })
         } else {
             None
         };

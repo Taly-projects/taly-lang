@@ -12,7 +12,7 @@ pub enum Node {
         external: bool,
         constructor: bool,
         parameters: Vec<FunctionDefinitionParameter>,
-        return_type: Option<Positioned<String>>,
+        return_type: Option<Positioned<DataType>>,
         body: Vec<Positioned<Node>>,
         access: Option<Positioned<AccessModifier>>
     },
@@ -24,7 +24,7 @@ pub enum Node {
     VariableDefinition {
         var_type: Positioned<VarType>,
         name: Positioned<String>,
-        data_type: Option<Positioned<String>>,
+        data_type: Option<Positioned<DataType>>,
         value: Option<Box<Positioned<Node>>>,
         access: Option<Positioned<AccessModifier>>
     },
@@ -164,18 +164,61 @@ pub enum ValueNode {
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                          Variable Type                                         //
+//////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+#[derive(Clone, Debug)]
+pub enum DataType {
+    Custom(String),
+    Function {
+        return_type: Option<Box<Positioned<DataType>>>,
+        params: Vec<Positioned<DataType>>
+    }
+}
+
+impl ToString for DataType {
+
+    fn to_string(&self) -> String {
+        match self {
+            DataType::Custom(inner) => inner.clone(),
+            DataType::Function { return_type, params } => {
+                let mut buf = String::new();
+                buf.push_str("fn(");
+                let mut first = false;
+                for param in params {
+                    if !first {
+                        buf.push_str(", ");
+                    }
+                    buf.push_str(&param.data.to_string());
+                    first = false;
+                }
+                buf.push(')');
+                if let Some(return_type) = return_type {
+                    buf.push_str(": ");
+                    buf.push_str(&return_type.data.to_string());
+                }
+                buf
+            },
+        }
+    }
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                  Function Definition Parameter                                 //
 //////////////////////////////////////////////////////////////////////////////////////////////////// 
 
 #[derive(Clone, Debug)]
 pub struct FunctionDefinitionParameter {
     pub name: Positioned<String>,
-    pub data_type: Positioned<String>
+    pub data_type: Positioned<DataType>
 }
 
 impl FunctionDefinitionParameter {
 
-    pub fn new(name: Positioned<String>, data_type: Positioned<String>) -> Self {
+    pub fn new(name: Positioned<String>, data_type: Positioned<DataType>) -> Self {
         Self {
             name,
             data_type

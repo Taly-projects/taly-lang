@@ -1,4 +1,4 @@
-use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch,}};
+use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch, DataType,}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           IR Generator                                         //
@@ -103,11 +103,11 @@ impl IRGenerator {
         if let Some(parent_type) = parent_type {
             if !constructor {
                 let mut new_params = Vec::new();
-                new_params.push(FunctionDefinitionParameter::new(name.convert("self".to_string()), parent_type));
+                new_params.push(FunctionDefinitionParameter::new(name.convert("self".to_string()), parent_type.convert(DataType::Custom(parent_type.data.clone()))));
                 new_params.append(&mut parameters);
                 parameters = new_params;
             } else {
-                return_type = Some(parent_type.clone());
+                return_type = Some(parent_type.convert(DataType::Custom(parent_type.data.clone())));
 
                 self.add_extra_include(Include { 
                     include_type: IncludeType::StdExternal, 
@@ -118,7 +118,7 @@ impl IRGenerator {
                 new_body.push(node.convert(Node::_Unchecked(Box::new(node.convert(Node::VariableDefinition { 
                     var_type: node.convert(VarType::Constant), 
                     name: node.convert("self".to_string()), 
-                    data_type: Some(parent_type.clone()), 
+                    data_type: Some(parent_type.convert(DataType::Custom(parent_type.data.clone()))), 
                     value: Some(Box::new(node.convert(Node::FunctionCall { 
                         name: node.convert("malloc".to_string()), 
                         parameters: vec![
@@ -138,13 +138,13 @@ impl IRGenerator {
             }
         } else if root && name.data == "main" {
             if let Some(data_type) = &mut return_type {
-                if data_type.data == "I32" {
-                    *data_type = data_type.convert("c_int".to_string());
-                } else if data_type.data != "c_int" {
-                    return Err(IRError::MainFunctionShouldReturnCInt(data_type.convert(())));
+                match &data_type.data {
+                    DataType::Custom(inner) if inner == "I32" => *data_type = data_type.convert(DataType::Custom("c_int".to_string())),
+                    DataType::Custom(inner) if inner == "c_int" => {}
+                    _ => return Err(IRError::MainFunctionShouldReturnCInt(data_type.convert(()))),
                 }
             } else {
-                return_type = Some(name.convert("c_int".to_string()));
+                return_type = Some(name.convert(DataType::Custom("c_int".to_string())));
                 body.push(name.convert(Node::Return(Some(Box::new(name.convert(Node::Value(ValueNode::Integer("0".to_string()))))))));
             }
         }

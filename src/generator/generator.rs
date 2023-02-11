@@ -1,4 +1,4 @@
-use crate::{ir::output::{IROutput, IncludeType}, generator::project::{Project, File}, util::position::Positioned, parser::node::{Node, ValueNode, Operator}};
+use crate::{ir::output::{IROutput, IncludeType}, generator::project::{Project, File}, util::position::Positioned, parser::node::{Node, ValueNode, Operator, DataType}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           Generator                                         //
@@ -26,20 +26,47 @@ impl Generator {
         self.index += 1;
     }
 
-    pub fn generate_type(data_type: String) -> String {
-        match data_type.as_str() {
-            "c_string" => "const char*".to_string(),
-            "c_int" => "int".to_string(),
-            "c_float" => "float".to_string(),
-            "void" => "void".to_string(),
-            _ => {
-                if data_type.starts_with("_NOPTR_") {
-                    (&data_type[7..data_type.len()]).to_string()
-                } else {
-                    format!("{}*", data_type)
+    pub fn generate_type(data_type: DataType, name: Option<String>) -> String {
+        match data_type {
+            DataType::Custom(inner) => {
+                match inner.as_str() {
+                    "c_string" => "const char*".to_string(),
+                    "c_int" => "int".to_string(),
+                    "c_float" => "float".to_string(),
+                    "void" => "void".to_string(),
+                    _ => {
+                        if inner.starts_with("_NOPTR_") {
+                            (&inner[7..inner.len()]).to_string()
+                        } else {
+                            format!("{}*", inner)
+                        }
+                    }
                 }
-            }
+            },
+            DataType::Function { return_type, params } => {
+                let name = name.unwrap_or(" ".to_string());
+                let mut buf = String::new();
+                if let Some(return_type) = return_type {
+                    buf.push_str(&Self::generate_type(return_type.data, None));
+                } else {
+                    buf.push_str("void");
+                }
+                buf.push_str("(*");
+                buf.push_str(&name);
+                buf.push_str(")(");
+                let mut first = false;
+                for param in params {
+                    if !first {
+                        buf.push_str(", ");
+                    }
+                    buf.push_str(&Self::generate_type(param.data, None));
+                    first = true;
+                }
+                buf.push_str(")");
+                buf
+            },
         }
+        
     }
 
     fn generate_value(&mut self, node: Positioned<Node>) -> (bool, String) {
@@ -52,7 +79,7 @@ impl Generator {
             ValueNode::Bool(b) => (true, format!("{}", b)),
             ValueNode::Integer(num) => (true, format!("{}", num)),
             ValueNode::Decimal(num) => (true, format!("{}", num)),
-            ValueNode::Type(str) => (true, Self::generate_type(str)),
+            ValueNode::Type(str) => (true, Self::generate_type(DataType::Custom(str), None)),
         }
     }
 
@@ -84,7 +111,7 @@ impl Generator {
 
         let mut buf = String::new();
 
-        buf.push_str(&Self::generate_type(data_type.expect("No type could be inferred!").data));
+        buf.push_str(&Self::generate_type(data_type.expect("No type could be inferred!").data, Some(name.data.clone())));
         buf.push(' ');
         buf.push_str(&name.data);
         
@@ -338,7 +365,7 @@ impl Generator {
         }
 
         let mut function_header = String::new();
-        function_header.push_str(&Self::generate_type(return_type.map_or("void".to_string(), |x| x.data)));
+        function_header.push_str(&Self::generate_type(return_type.map_or(DataType::Custom("void".to_string()), |x| x.data), None));
         function_header.push(' ');
         function_header.push_str(&name.data);
         function_header.push('(');
@@ -347,7 +374,7 @@ impl Generator {
             if index != 0 {
                 function_header.push_str(", ");
             }
-            function_header.push_str(&Self::generate_type(param.data_type.data));
+            function_header.push_str(&Self::generate_type(param.data_type.data, Some(param.name.data.clone())));
             function_header.push(' ');
             function_header.push_str(&param.name.data);
             index += 1;
@@ -412,7 +439,7 @@ impl Generator {
             };
 
             struct_buf.push_str("\t");
-            struct_buf.push_str(&Self::generate_type(data_type.expect("No Type Could be inferred!").data));
+            struct_buf.push_str(&Self::generate_type(data_type.expect("No Type Could be inferred!").data, Some(name.data.clone())));
             struct_buf.push_str(" ");
             struct_buf.push_str(&name.data);
             struct_buf.push_str(";");
@@ -506,7 +533,7 @@ impl Generator {
             };
 
             struct_buf.push_str("\t");
-            struct_buf.push_str(&Self::generate_type(return_type.map_or("void".to_string(), |x| x.data)));
+            struct_buf.push_str(&Self::generate_type(return_type.map_or(DataType::Custom("void".to_string()), |x| x.data), Some(name.data.clone())));
             struct_buf.push_str(" (*");
             struct_buf.push_str(&name.data);
             struct_buf.push_str(")(");
@@ -515,7 +542,7 @@ impl Generator {
                 if first {
                     struct_buf.push_str(", ");
                 }
-                struct_buf.push_str(&Self::generate_type(param.data_type.data));
+                struct_buf.push_str(&Self::generate_type(param.data_type.data, Some(param.name.data.clone())));
                 first = false;
             }
             struct_buf.push_str(");\n");
