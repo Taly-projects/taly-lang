@@ -54,13 +54,13 @@ impl Generator {
                 buf.push_str("(*");
                 buf.push_str(&name);
                 buf.push_str(")(");
-                let mut first = false;
+                let mut first = true;
                 for param in params {
                     if !first {
                         buf.push_str(", ");
                     }
                     buf.push_str(&Self::generate_type(param.data, None));
-                    first = true;
+                    first = false;
                 }
                 buf.push_str(")");
                 buf
@@ -83,20 +83,23 @@ impl Generator {
         }
     }
 
-    fn generate_function_call(&mut self, node: Positioned<Node>) -> (bool, String) {
+    fn generate_function_call(&mut self, node: Positioned<Node>, access: bool) -> (bool, String) {
         let Node::FunctionCall { name, parameters } = node.data.clone() else {
             unreachable!()
         };
 
         let mut buf = String::new();
         buf.push_str(&name.data);
+        if access {
+            buf.push(')');
+        }
         buf.push('(');
         let mut index = 0;
         for param in parameters {
             if index != 0 {
                 buf.push_str(", ");
             }
-            buf.push_str(&self.generate_current(param).1);
+            buf.push_str(&self.generate_current(param, false).1);
             index += 1;
         }
         buf.push(')');
@@ -117,7 +120,7 @@ impl Generator {
         
         if let Some(value) = value {
             buf.push_str(" = ");
-            buf.push_str(&self.generate_current(*value).1);
+            buf.push_str(&self.generate_current(*value, false).1);
         }
 
         (true, buf)
@@ -131,7 +134,13 @@ impl Generator {
         let mut buf = String::new();
 
         buf.push('(');
-        buf.push_str(&self.generate_current(*lhs).1);
+        let access = if operator.data == Operator::Access {
+            buf.push('(');
+            true
+        } else {
+            false
+        };
+        buf.push_str(&self.generate_current(*lhs, false).1);
         match operator.data {
             Operator::Add => buf.push_str(" + "),
             Operator::Subtract => buf.push_str(" - "),
@@ -149,7 +158,7 @@ impl Generator {
             Operator::GreaterOrEqual => buf.push_str(" >= "),
             _ => unreachable!()
         }
-        buf.push_str(&self.generate_current(*rhs).1);
+        buf.push_str(&self.generate_current(*rhs, access).1);
         buf.push(')');
 
         (true, buf)
@@ -169,7 +178,7 @@ impl Generator {
             Operator::BooleanNot => buf.push_str("!"),
             _ => unreachable!()
         }
-        buf.push_str(&self.generate_current(*value).1);
+        buf.push_str(&self.generate_current(*value, false).1);
         buf.push(')');
 
         (true, buf)
@@ -194,7 +203,7 @@ impl Generator {
         buf.push_str("return");
         if let Some(expr) = expr {
             buf.push(' ');
-            buf.push_str(&self.generate_current(*expr).1);
+            buf.push_str(&self.generate_current(*expr, false).1);
         }
 
         (true, buf)
@@ -238,7 +247,7 @@ impl Generator {
         let mut buf = String::new();
         buf.push_str(&name.data);
         buf.push_str(": ");
-        let inner_out = &self.generate_current(*inner);
+        let inner_out = &self.generate_current(*inner, false);
         buf.push_str(&inner_out.1);
         
         (inner_out.0, buf)
@@ -251,10 +260,10 @@ impl Generator {
 
         let mut buf = String::new();
         buf.push_str("if (");
-        buf.push_str(&self.generate_current(*condition).1);
+        buf.push_str(&self.generate_current(*condition, false).1);
         buf.push_str(") { ");
         for node in body.clone() {
-            let node_str = self.generate_current(node);
+            let node_str = self.generate_current(node, false);
             for line in node_str.1.lines() {
                 buf.push_str("\n\t");
                 buf.push_str(line);
@@ -270,10 +279,10 @@ impl Generator {
 
         for elif_branch in elif_branches {
             buf.push_str("else if (");
-            buf.push_str(&self.generate_current(elif_branch.condition).1);
+            buf.push_str(&self.generate_current(elif_branch.condition, false).1);
             buf.push_str(") { ");
             for node in elif_branch.body.clone() {
-                let node_str = self.generate_current(node);
+                let node_str = self.generate_current(node, false);
                 for line in node_str.1.lines() {
                     buf.push_str("\n\t");
                     buf.push_str(line);
@@ -291,7 +300,7 @@ impl Generator {
         if !else_body.is_empty() {
             buf.push_str("else {");
             for node in else_body.clone() {
-                let node_str = self.generate_current(node);
+                let node_str = self.generate_current(node, false);
                 for line in node_str.1.lines() {
                     buf.push_str("\n\t");
                     buf.push_str(line);
@@ -317,10 +326,10 @@ impl Generator {
 
         let mut buf = String::new();
         buf.push_str("while (");
-        buf.push_str(&self.generate_current(*condition).1);
+        buf.push_str(&self.generate_current(*condition, false).1);
         buf.push_str(") { ");
         for node in body.clone() {
-            let node_str = self.generate_current(node);
+            let node_str = self.generate_current(node, false);
             for line in node_str.1.lines() {
                 buf.push_str("\n\t");
                 buf.push_str(line);
@@ -337,10 +346,10 @@ impl Generator {
         (false, buf)
     }
 
-    fn generate_current(&mut self, node: Positioned<Node>) -> (bool, String) {
+    fn generate_current(&mut self, node: Positioned<Node>, access: bool) -> (bool, String) {
         match node.data {
             Node::Value(_) => self.generate_value(node),
-            Node::FunctionCall { .. } => self.generate_function_call(node),
+            Node::FunctionCall { .. } => self.generate_function_call(node, access),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::VariableCall(_) => self.generate_variable_call(node),
             Node::BinaryOperation { .. } => self.generate_binary_operation(node),
@@ -390,7 +399,7 @@ impl Generator {
         file.src.push_str(&function_header);
         file.src.push_str(" { ");
         for node in body.clone() {
-            let node_str = self.generate_current(node);
+            let node_str = self.generate_current(node, false);
             for line in node_str.1.lines() {
                 file.src.push_str("\n\t");
                 file.src.push_str(line);
@@ -439,9 +448,17 @@ impl Generator {
             };
 
             struct_buf.push_str("\t");
-            struct_buf.push_str(&Self::generate_type(data_type.expect("No Type Could be inferred!").data, Some(name.data.clone())));
-            struct_buf.push_str(" ");
-            struct_buf.push_str(&name.data);
+            let data_type = data_type.expect("No Type Could be inferred").data;
+            match data_type {
+                DataType::Custom(_) => {
+                    struct_buf.push_str(&Self::generate_type(data_type, Some(name.data.clone())));
+                    struct_buf.push_str(" ");
+                    struct_buf.push_str(&name.data);
+                },
+                DataType::Function { .. } => {
+                    struct_buf.push_str(&Self::generate_type(data_type, Some(name.data.clone())));
+                },
+            }
             struct_buf.push_str(";");
             struct_buf.push_str("\n");
         }

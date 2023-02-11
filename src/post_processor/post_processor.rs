@@ -1,4 +1,4 @@
-use crate::{ir::output::IROutput, util::position::Positioned, parser::node::{Node, Operator, ElifBranch}};
+use crate::{ir::output::IROutput, util::position::Positioned, parser::node::{Node, Operator, ElifBranch, VarType, DataType, FunctionDefinitionParameter}};
 
 pub struct PostProcessor {
     ir_output: IROutput,
@@ -244,17 +244,71 @@ impl PostProcessor {
     }
 
     fn process_interface_definition(&mut self, node: Positioned<Node>) -> Positioned<Node> {
-        let Node::InterfaceDefinition { name, body, access } = node.data.clone() else {
+        let Node::InterfaceDefinition { name: interface_name, body, access } = node.data.clone() else {
             unreachable!()
         };
 
         let mut new_body = Vec::new();
         for node in body {
-            new_body.push(self.process_node(node, None));
+            let processed_node = self.process_node(node, None);
+            let Node::FunctionDefinition { name, mut parameters, return_type, .. } = processed_node.data.clone() else {
+                unreachable!("Interfaces should only contain functions!")
+            };
+
+            let mut params = Vec::new();
+            params.push(interface_name.convert(DataType::Custom(interface_name.data.clone())));
+            for param in parameters.clone() {
+                params.push(param.data_type);
+            }
+
+            // Field
+            new_body.push(processed_node.convert(Node::VariableDefinition { 
+                var_type: processed_node.convert(VarType::Constant), 
+                name: name.clone(),
+                data_type: Some(processed_node.convert(DataType::Function { 
+                    return_type: return_type.clone().map(|x| Box::new(x)), 
+                    params: params.clone() 
+                })), 
+                value: None, 
+                access: None 
+            }));
+
+            // Process parameters
+            let mut new_parameters = Vec::new();
+            let mut parameters_call = Vec::new();
+            new_parameters.push(FunctionDefinitionParameter {
+                name: interface_name.convert("self".to_string()),
+                data_type: interface_name.convert(DataType::Custom(interface_name.data.clone())),
+            });
+            parameters_call.push(processed_node.convert(Node::VariableCall("self".to_string())));
+            for param in parameters.iter() {
+                parameters_call.push(processed_node.convert(Node::VariableCall(param.name.data.clone())));
+            }
+            new_parameters.append(&mut parameters);
+
+            // Methods
+            new_body.push(processed_node.convert(Node::FunctionDefinition { 
+                name: name.clone(), 
+                external: false, 
+                constructor: false, 
+                parameters: new_parameters,
+                return_type: return_type.clone(), 
+                body: vec![
+                    processed_node.convert(Node::BinaryOperation { 
+                        lhs: Box::new(processed_node.convert(Node::VariableCall("self".to_string()))), 
+                        operator: processed_node.convert(Operator::Access), 
+                        rhs: Box::new(processed_node.convert(Node::FunctionCall { 
+                            name: name.clone(), 
+                            parameters: parameters_call
+                        })) 
+                    })
+                ], 
+                access: None 
+            }))
         }
 
-        node.convert(Node::InterfaceDefinition { 
-            name, 
+        node.convert(Node::ClassDefinition { 
+            name: interface_name, 
             body: new_body, 
             access 
         })

@@ -61,7 +61,7 @@ impl Checker {
                     (lhs, rhs) if lhs == rhs => Ok(()),
                     (_, _) => Err(CheckerError::UnexpectedType(found_node.convert(Some(found_str.clone())), Some(expected.convert(expected_str.clone()))))
                 },
-                (DataType::Function { return_type: expected_return_type, params: expected_params }, DataType::Function { return_type: found_return_type, params: found_params }) => todo!("Check type for function"),
+                (DataType::Function { return_type: _expected_return_type, params: _expected_params }, DataType::Function { return_type: _found_return_type, params: _found_params }) => todo!("Check type for function"),
                 (_, _) => Err(CheckerError::UnexpectedType(found_node.convert(Some(found.data.to_string())), Some(expected.convert(expected.data.to_string()))))
             }
         } else {

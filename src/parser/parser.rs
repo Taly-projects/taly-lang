@@ -205,7 +205,7 @@ impl Parser {
             left = Positioned::new(Node::BinaryOperation { 
                 lhs: Box::new(left), 
                 operator, 
-                rhs: Box::new(right) 
+                rhs: Box::new(right)
             }, start, end);
         }
 
