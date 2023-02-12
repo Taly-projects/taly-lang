@@ -56,7 +56,8 @@ impl Symbolizer {
             children: Vec::new(), 
             return_type: return_type_scoped, 
             external,
-            constructor
+            constructor,
+            implementation: false
         }, Some(scope.clone()), self.trace.clone(), access);
 
         // Check if unique

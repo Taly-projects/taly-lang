@@ -82,7 +82,8 @@ pub enum Node {
     _Renamed {
         name: String,
         node: Box<Positioned<Node>>
-    }
+    },
+    _Implementation(Box<Positioned<Node>>),
 }
 
 impl Node {
@@ -142,6 +143,7 @@ impl Node {
             Node::_Unchecked(inner) => format!("!{}", inner.data.short_name()),
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
             Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),
+            Node::_Implementation(inner) => format!("@override {}", inner.data.short_name()),
         }
     }
 

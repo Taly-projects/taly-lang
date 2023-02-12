@@ -679,23 +679,24 @@ impl Checker {
         }
 
         // Check if all functions are implemented
-        let ScopeType::Class { extensions: extensions_scope, children, .. } = self.scope.get().clone().scope else {
+        let ScopeType::Class { extensions: extensions_scope, children, .. } = &mut self.scope.get().scope else {
             unreachable!()
         };
 
         // Retrieve all the necessary functions
         let mut index = 0;
+        let mut implementations = Vec::new();
         for extension in extensions_scope.iter() {
             let ScopeType::Interface { children: intf_children, .. } = extension.get().scope.clone() else {
                 continue;
             };
-            'B: for intf_child in intf_children {
-                let ScopeType::Function { name: intf_fun_name, params: intf_fun_params, return_type: intf_fun_return_type, .. } = intf_child.scope else {
+            'B: for intf_child in intf_children.iter() {
+                let ScopeType::Function { name: intf_fun_name, params: intf_fun_params, return_type: intf_fun_return_type, .. } = &intf_child.scope else {
                     continue;
                 };
                 // Check if the class contains the same function
-                for child in children.iter() {
-                    let ScopeType::Function { name: class_fun_name, params: class_fun_params, return_type: class_fun_return_type, constructor, .. } = &child.scope else {
+                for child in children.iter_mut() {
+                    let ScopeType::Function { name: class_fun_name, params: class_fun_params, return_type: class_fun_return_type, constructor, .. } = &mut child.scope else {
                         continue;
                     };
 
@@ -705,7 +706,7 @@ impl Checker {
                     }
 
                     // Check access
-                    match (intf_child.access, &child.access) {
+                    match (&intf_child.access, &child.access) {
                         (None, None) => {},
                         (Some(lhs), Some(rhs)) if lhs.data == rhs.data => {},
                         (_, _) => return Err(CheckerError::FunctionNotMatching(class_fun_name.clone(), extensions[index].clone(), intf_child.pos.clone()))
@@ -739,6 +740,8 @@ impl Checker {
                         return Err(CheckerError::FunctionNotMatching(class_fun_name.clone(), extensions[index].clone(), intf_child.pos.clone()));
                     }
 
+                    implementations.push(class_fun_name.clone());
+
                     continue 'B;
                 }
                 return Err(CheckerError::FunctionNotImplemented(intf_fun_name.clone(), extensions[index].clone()));
@@ -750,7 +753,10 @@ impl Checker {
         let mut new_body = Vec::new();
         self.trace = Trace::new(0, self.trace.clone());
         for child in body {
-            let checked_child = self.check_node(child)?;
+            let mut checked_child = self.check_node(child.clone())?;
+            if let Node::FunctionDefinition { .. } = child.data {
+                checked_child.checked = checked_child.checked.clone().convert(Node::_Implementation(Box::new(checked_child.checked)));
+            }
             new_body.push(checked_child.checked);
             self.trace.index += 1;
         }
@@ -1124,7 +1130,8 @@ impl Checker {
                 function_called: None
             }),
             Node::_Optional(_) => unreachable!("Unexpected _Optional"),
-            Node::_Renamed { .. } => unreachable!("Unexpected _Renamed")
+            Node::_Renamed { .. } => unreachable!("Unexpected _Renamed"),
+            Node::_Implementation { .. } => unreachable!("Unexpected _Implementation")
         }
     }
 

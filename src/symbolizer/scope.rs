@@ -25,7 +25,8 @@ pub enum ScopeType {
         children: Vec<Scope>,
         return_type: Option<Scoped<Positioned<DataType>>>,
         external: bool,
-        constructor: bool
+        constructor: bool,
+        implementation: bool
     },
     Variable {
         var_type: Positioned<VarType>,
@@ -109,6 +110,7 @@ impl Scope {
             }
         } 
         match &self.scope {
+            ScopeType::Function { name, implementation, .. } if *implementation => buf.push_str(&format!("{}_impl", name.data)),
             ScopeType::Function { name, .. } => buf.push_str(&name.data),
             ScopeType::Variable { name, .. } => return name.data.clone(),
             ScopeType::Class { name, .. } => buf.push_str(&name.data),

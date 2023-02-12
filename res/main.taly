@@ -1,3 +1,7 @@
+use "std-stdio"
+
+extern fn printf(msg: c_string)
+
 pub intf ToCString
 
     pub fn to_c_string(): c_string
@@ -13,3 +17,4 @@ pub class String: ToCString
 
 fn main() =>
     const str: String = String.create("Hello")
+    printf(str.to_c_string())

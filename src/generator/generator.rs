@@ -426,10 +426,12 @@ impl Generator {
         // Separate fields and methods
         let mut fields = Vec::new();
         let mut methods = Vec::new();
+        let mut methods_impl = Vec::new();
         for node in body.iter() {
-            match node.data {
+            match node.data.clone() {
                 Node::FunctionDefinition { .. } => methods.push(node.clone()),
                 Node::VariableDefinition { .. } => fields.push(node.clone()),
+                Node::_Implementation(inner) => methods_impl.push(*inner),
                 _ => unreachable!()
             }
         }
@@ -471,6 +473,47 @@ impl Generator {
 
         for method in methods.iter() {
             let fun_file = self.generate_root_function_definition(method.clone());
+            file.header.push_str(&fun_file.header);
+            file.src.push_str(&fun_file.src);
+        }
+
+        for method_impl in methods_impl.iter_mut() {
+            let base_name;
+            if let Node::FunctionDefinition { name, .. } = &mut method_impl.data {
+                base_name = name.clone();
+                *name = name.convert(format!("{}_impl", name.data));
+            } else {
+                unreachable!()
+            }
+            // Generate implementation
+            let fun_file = self.generate_root_function_definition(method_impl.clone());
+            file.header.push_str(&fun_file.header);
+            file.src.push_str(&fun_file.src);
+
+            // Generate function
+            let Node::FunctionDefinition { constructor, parameters, return_type, .. } = method_impl.data.clone() else {
+                unreachable!()
+            };
+
+            let mut call_params = Vec::new();
+            for param in parameters.iter() {
+                call_params.push(param.name.convert(Node::VariableCall(param.name.data.clone())))
+            }
+
+            let fun_file = self.generate_root_function_definition(method_impl.convert(Node::FunctionDefinition { 
+                name: base_name.clone(), 
+                external: false, 
+                constructor, 
+                parameters: parameters,
+                return_type: return_type, 
+                body: vec![
+                    method_impl.convert(Node::FunctionCall { 
+                        name: base_name.convert(format!("{}_impl", base_name.data)), 
+                        parameters: call_params
+                    })
+                ], 
+                access: None 
+            }));
             file.header.push_str(&fun_file.header);
             file.src.push_str(&fun_file.src);
         }
