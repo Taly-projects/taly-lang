@@ -135,8 +135,12 @@ impl Generator {
 
         buf.push('(');
         let access = if operator.data == Operator::Access {
-            buf.push('(');
-            true
+            if let Node::FunctionCall { .. } = rhs.data {
+                buf.push('(');
+                true
+            } else {
+                false
+            }
         } else {
             false
         };

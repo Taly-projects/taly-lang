@@ -88,6 +88,14 @@ fn generate(ir_output: IROutput) -> Project {
     generator.generate()
 }
 
+fn build_project(project: Project) {
+    std::fs::create_dir_all("./out/project").unwrap();
+    for file in project.files.iter() {
+        std::fs::write(format!("./out/project/{}.h", file.name), file.header.clone()).unwrap();
+        std::fs::write(format!("./out/project/{}.c", file.name), file.src.clone()).unwrap();
+    }
+}
+
 fn main() {
     let src = read_file("res/main.taly");
     
@@ -165,4 +173,6 @@ fn main() {
         println!("{}.c", file.name);
         println!("{}\n", file.src);
     }
+
+    build_project(project);
 }
