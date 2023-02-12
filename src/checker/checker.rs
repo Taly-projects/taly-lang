@@ -754,8 +754,13 @@ impl Checker {
         self.trace = Trace::new(0, self.trace.clone());
         for child in body {
             let mut checked_child = self.check_node(child.clone())?;
-            if let Node::FunctionDefinition { .. } = child.data {
-                checked_child.checked = checked_child.checked.clone().convert(Node::_Implementation(Box::new(checked_child.checked)));
+            if let Node::FunctionDefinition { name, .. } = child.data {
+                for implementation in implementations.iter() {
+                    if implementation.data == name.data {
+                        checked_child.checked = checked_child.checked.clone().convert(Node::_Implementation(Box::new(checked_child.checked)));
+                        break;
+                    }
+                }
             }
             new_body.push(checked_child.checked);
             self.trace.index += 1;

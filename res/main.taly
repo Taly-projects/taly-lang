@@ -18,3 +18,4 @@ pub class String: ToCString
 fn main() =>
     const str: String = String.create("Hello")
     printf(str.to_c_string())
+    str.destroy()
