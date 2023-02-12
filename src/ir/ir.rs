@@ -379,6 +379,19 @@ impl IRGenerator {
         let mut destructor = None;
         let mut has_constructor = false;
         let mut has_fields = false;
+
+        // Generate fields for extensions
+        // for extension in extensions.iter() {
+        //     has_fields = true;
+        //     new_body.push(extension.convert(Node::VariableDefinition { 
+        //         var_type: extension.convert(VarType::Constant), 
+        //         name: extension.convert(format!("base_{}", extension.data)), 
+        //         data_type: Some(extension.convert(DataType::Custom(extension.data.clone()))), 
+        //         value: None, 
+        //         access: None 
+        //     }))
+        // }
+
         for node in body.iter() {
             if let Node::FunctionDefinition { name: function_name, return_type, parameters, constructor, .. } = &node.data {
                 if *constructor {

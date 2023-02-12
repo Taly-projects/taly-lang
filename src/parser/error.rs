@@ -1,4 +1,4 @@
-use crate::{util::{position::Positioned, source_file::SourceFile, error::{ErrorFormat, ErrorType}}, lexer::tokens::Token};
+use crate::{util::{position::Positioned, source_file::SourceFile, error::{ErrorFormat, ErrorType}}, lexer::tokens::Token, parser::node::Node};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           Parser Error                                         //
@@ -7,7 +7,8 @@ use crate::{util::{position::Positioned, source_file::SourceFile, error::{ErrorF
 pub enum ParserError {
     UnexpectedToken(Positioned<Token>, Option<String>),
     UnexpectedEOF(Option<String>),
-    UninitializedConstant(Positioned<String>)
+    UninitializedConstant(Positioned<String>),
+    UnexpectedNode(Positioned<Node>, Option<String>),
 }
 
 impl ParserError {
@@ -38,6 +39,15 @@ impl ParserError {
                     .set_step("Parser".to_string())
                     .print(src)
             }
+            ParserError::UnexpectedNode(found, expected) => {
+                let mut buf = format!("Unexpected node '{}'", found.data.short_name());
+                if let Some(expected) = expected {
+                    buf.push_str(format!(", should be '{}'!", expected).as_str());
+                } else {
+                    buf.push('!'); 
+                }
+                ErrorFormat::new(ErrorType::Error).add_message(buf, Some(found.convert(()))).set_step("Parser".to_string()).print(src);
+            },
         }
     }
 

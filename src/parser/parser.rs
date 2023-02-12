@@ -20,6 +20,7 @@ impl Parser {
         }
     }
 
+    /* Cursor Movement */
     fn advance(&mut self) {
         self.index += 1;
     }
@@ -36,6 +37,7 @@ impl Parser {
         self.tokens.get(self.index + x).cloned()
     } 
 
+    /* Expect */
     fn expect_current(&self, token: Option<String>) -> Result<Positioned<Token>, ParserError> {
         if let Some(current) = self.current() {
             Ok(current)
@@ -71,8 +73,9 @@ impl Parser {
         }
     }
 
+    /* Parse */
     fn parse_body(&mut self, body: &mut Vec<Positioned<Node>>) -> Result<(), ParserError> {
-        // Node?([Tab][Node][\n])*
+        // Node?([nTab][Node][\n])* 
         let mut first = true;
         'A: while self.current().is_some() {
             // Tab
@@ -92,7 +95,6 @@ impl Parser {
                     } else {
                         if tab < self.tabs && !first {
                             self.index = pre_index;
-                            println!("Not Enough tab {}/{}", tab, self.tabs);
                             break 'A;
                         } else {
                             break;
@@ -390,7 +392,7 @@ impl Parser {
         if let Some(current) = self.current() {
             if current.data == Token::Colon {
                 self.advance();
-                let id = self.expect_id()?;
+                let id = self.expect_id()?; // TODO: Take expr (and allow BinOp.access)
                 return_type = Some(id.clone().convert(DataType::Custom(id.data)));
                 end = return_type.as_ref().unwrap().end.clone();
                 self.advance();
@@ -408,6 +410,24 @@ impl Parser {
                 self.tabs += 1;
                 self.parse_body(&mut body)?;
                 self.tabs -= 1;
+
+                // [Semantic]: Check the nodes inside the body
+                for node in body.iter() {
+                    match &node.data {
+                        Node::Value(_) |
+                        Node::FunctionCall { .. } |
+                        Node::VariableDefinition { .. } |
+                        Node::VariableCall(_) |
+                        Node::BinaryOperation { .. } |
+                        Node::UnaryOperation { .. } |
+                        Node::Return(_) |
+                        Node::IfStatement { .. } |
+                        Node::WhileLoop { .. } |
+                        Node::MatchStatement { .. } |
+                        Node::Label { .. }  => {}
+                        _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+                    }
+                }
             }
         }
 
@@ -511,6 +531,16 @@ impl Parser {
         self.tabs += 1;
         let mut body = Vec::new();
         self.parse_body(&mut body)?;
+
+        // [Semantic]: Check the nodes inside the body
+        for node in body.iter() {
+            match &node.data {
+                Node::FunctionDefinition { .. } |
+                Node::VariableDefinition { .. } => { },
+                _ => return Err(ParserError::UnexpectedNode(node.clone(), Some("Method, Constructor or Field".to_string())))
+            }
+        }
+
         if let Some(last) = body.last() {
             end = last.end.clone();
         }
@@ -533,6 +563,18 @@ impl Parser {
         self.tabs += 1;
         let mut body = Vec::new();
         self.parse_body(&mut body)?;
+
+        // [Semantic]: Check the nodes inside the body
+        for node in body.iter() {
+            match &node.data {
+                Node::FunctionDefinition { .. } |
+                Node::ClassDefinition { .. } |
+                Node::SpaceDefinition { .. } |
+                Node::InterfaceDefinition { .. } => { },
+                _ => return Err(ParserError::UnexpectedNode(node.clone(), Some("Function, Class, Interface or Space".to_string())))
+            }
+        }
+
         if let Some(last) = body.last() {
             end = last.end.clone();
         }
@@ -547,95 +589,111 @@ impl Parser {
 
     fn parse_if_statement(&mut self, start: Position) -> Result<Positioned<Node>, ParserError> {
         self.advance();
-        let mut condition = self.parse_expr()?;
+        let if_condition = self.parse_expr()?;
         self.expect_token(Token::Keyword(Keyword::Then))?;
         self.advance();
-        let mut body = Vec::new();
-        let mut else_block = false;
-
-        let mut if_condition = None;
+        
+        self.tabs += 1;
         let mut if_body = Vec::new();
-        let mut else_body = Vec::new();
+        self.parse_body(&mut if_body)?;
 
+        // [Semantic]: Check the nodes inside the body
+        for node in if_body.iter() {
+            match &node.data {
+                Node::Value(_) |
+                Node::FunctionCall { .. } |
+                Node::VariableDefinition { .. } |
+                Node::VariableCall(_) |
+                Node::BinaryOperation { .. } |
+                Node::UnaryOperation { .. } |
+                Node::Return(_) |
+                Node::IfStatement { .. } |
+                Node::WhileLoop { .. } |
+                Node::MatchStatement { .. } |
+                Node::Label { .. }  => {}
+                _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+            }
+        }
+
+        
         let mut branches = Vec::new();
+        let mut else_body = Vec::new();
         let end;
 
-        let mut current = self.expect_current(Some("end".to_string()))?;
+        let mut current;
         loop {
+            current = self.expect_current(Some("end".to_string()))?;
             match current.data {
-                Token::Keyword(Keyword::End) => {
-                    if else_block {
-                        else_body = body;
-                    } else if if_condition.is_none() {
-                        if_condition = Some(condition.clone());
-                        if_body = body;
-                    } else {
-                        branches.push(ElifBranch {
-                            condition: condition.clone(),
-                            body,
-                        });
-                    }
-
-                    end = current.end.clone();
-                    self.advance();
-
-                    break
-                }, 
                 Token::Keyword(Keyword::Elif) => {
-                    if else_block {
-                        return Err(ParserError::UnexpectedToken(current, None));
-                    }
-
-                    // Push Branch
-                    if if_condition.is_none() {
-                        if_condition = Some(condition.clone());
-                        if_body = body;
-                    } else {
-                        branches.push(ElifBranch {
-                            condition: condition.clone(),
-                            body,
-                        });
-                    }
-
-                    // Get condition
-                    condition = self.parse_expr()?;
+                    self.advance();
+                    let condition = self.parse_expr()?;
                     self.expect_token(Token::Keyword(Keyword::Then))?;
                     self.advance();
 
-                    body = Vec::new();
+                    let mut body = Vec::new();
+                    self.parse_body(&mut body)?;
+
+                    // [Semantic]: Check the nodes inside the body
+                    for node in body.iter() {
+                        match &node.data {
+                            Node::Value(_) |
+                            Node::FunctionCall { .. } |
+                            Node::VariableDefinition { .. } |
+                            Node::VariableCall(_) |
+                            Node::BinaryOperation { .. } |
+                            Node::UnaryOperation { .. } |
+                            Node::Return(_) |
+                            Node::IfStatement { .. } |
+                            Node::WhileLoop { .. } |
+                            Node::MatchStatement { .. } |
+                            Node::Label { .. }  => {}
+                            _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+                        }
+                    }
+
+                    branches.push(ElifBranch { 
+                        condition, 
+                        body 
+                    })
                 }
                 Token::Keyword(Keyword::Else) => {
-                    if else_block {
-                        return Err(ParserError::UnexpectedToken(current, None));
-                    }
-
-                    // Push Branch
-                    if if_condition.is_none() {
-                        if_condition = Some(condition.clone());
-                        if_body = body;
-                    } else {
-                        branches.push(ElifBranch {
-                            condition: condition.clone(),
-                            body,
-                        });
-                    }
-
                     self.advance();
-                    body = Vec::new();
 
-                    else_block = true;
+                    self.parse_body(&mut else_body)?;
+
+                    // [Semantic]: Check the nodes inside the body
+                    for node in else_body.iter() {
+                        match &node.data {
+                            Node::Value(_) |
+                            Node::FunctionCall { .. } |
+                            Node::VariableDefinition { .. } |
+                            Node::VariableCall(_) |
+                            Node::BinaryOperation { .. } |
+                            Node::UnaryOperation { .. } |
+                            Node::Return(_) |
+                            Node::IfStatement { .. } |
+                            Node::WhileLoop { .. } |
+                            Node::MatchStatement { .. } |
+                            Node::Label { .. }  => {}
+                            _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+                        }
+                    }
+
+                    end = self.expect_token(Token::Keyword(Keyword::End))?.end;
+                    self.advance();
+                    break
                 }
-                _ => {
-                    if let Some(node) = self.parse_current()? {
-                        body.push(node)
-                    } 
+                Token::Keyword(Keyword::End) => {
+                    self.tabs -= 1;
+                    end = current.end;
+                    break;
                 }
+                _ => return Err(ParserError::UnexpectedToken(current, Some("end".to_string())))
             }
-            current = self.expect_current(Some("end".to_string()))?;
         }
 
         Ok(Positioned::new(Node::IfStatement { 
-            condition: Box::new(if_condition.unwrap()), 
+            condition: Box::new(if_condition), 
             body: if_body, 
             elif_branches: branches, 
             else_body 
@@ -658,6 +716,25 @@ impl Parser {
         }
         let end = current.end.clone();
         self.advance();
+
+        // [Semantic]: Check the nodes inside the body
+        for node in body.iter() {
+            match &node.data {
+                Node::Value(_) |
+                Node::FunctionCall { .. } |
+                Node::VariableDefinition { .. } |
+                Node::VariableCall(_) |
+                Node::BinaryOperation { .. } |
+                Node::UnaryOperation { .. } |
+                Node::Return(_) |
+                Node::IfStatement { .. } |
+                Node::WhileLoop { .. } |
+                Node::MatchStatement { .. } |
+                Node::Label { .. }  => {}
+                _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+            }
+        }
+
         
         Ok(Positioned::new(Node::WhileLoop { 
             condition: Box::new(expr), 
@@ -685,6 +762,24 @@ impl Parser {
 
                     // No +1 on index because already +1 for the global match
                     self.parse_body(&mut else_body)?;
+
+                    // [Semantic]: Check the nodes inside the body
+                    for node in else_body.iter() {
+                        match &node.data {
+                            Node::Value(_) |
+                            Node::FunctionCall { .. } |
+                            Node::VariableDefinition { .. } |
+                            Node::VariableCall(_) |
+                            Node::BinaryOperation { .. } |
+                            Node::UnaryOperation { .. } |
+                            Node::Return(_) |
+                            Node::IfStatement { .. } |
+                            Node::WhileLoop { .. } |
+                            Node::MatchStatement { .. } |
+                            Node::Label { .. }  => {}
+                            _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+                        }
+                    }
                     
                     end = self.expect_token(Token::Keyword(Keyword::End))?.end;
                     self.advance();
@@ -733,6 +828,24 @@ impl Parser {
                         let mut body = Vec::new();
                         self.parse_body(&mut body)?;
                         self.tabs -= 1;
+
+                        // [Semantic]: Check the nodes inside the body
+                        for node in body.iter() {
+                            match &node.data {
+                                Node::Value(_) |
+                                Node::FunctionCall { .. } |
+                                Node::VariableDefinition { .. } |
+                                Node::VariableCall(_) |
+                                Node::BinaryOperation { .. } |
+                                Node::UnaryOperation { .. } |
+                                Node::Return(_) |
+                                Node::IfStatement { .. } |
+                                Node::WhileLoop { .. } |
+                                Node::MatchStatement { .. } |
+                                Node::Label { .. }  => {}
+                                _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+                            }
+                        }
                         
                         branches.push(MatchBranch {
                             conditions,
@@ -796,6 +909,15 @@ impl Parser {
         if let Some(last) = body.last() {
             end = last.end.clone();
         }
+
+        // [Semantic]: Check the nodes inside the body
+        for node in body.iter() {
+            match &node.data {
+                Node::FunctionDefinition { .. } => {}
+                _ => return Err(ParserError::UnexpectedNode(node.clone(), None))
+            }
+        }
+
         self.tabs -= 1;
 
         Ok(Positioned::new(Node::InterfaceDefinition { 
@@ -864,7 +986,7 @@ impl Parser {
                     inner: Box::new(inner) 
                 }, start, end))
             },
-            _ => return Err(ParserError::UnexpectedToken(current, Some("loop".to_string()))),
+            _ => return Err(ParserError::UnexpectedToken(current, Some("while".to_string()))),
         }
     } 
 
