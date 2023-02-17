@@ -141,21 +141,23 @@ impl Checker {
 
         // Enter Scope
         let processed_name;
-        if let Some(function) = self.scope.get().enter_function(self.trace.clone(), name.data.clone(), true, true) {
+        if let Some(function) = self.scope.get().enter_function(Trace::full(), name.data.clone(), true, true) {
             function.get().parent = Some(self.scope.clone()); // FIXME: Somehow fix the problem
             self.scope = function;
             processed_name = self.scope.get().process_name();
         } else {
-            unreachable!("Symbol '{}' not found", name.data);
+            unreachable!("Symbol '{}' not found in {:#?}", name.data, self.scope.get().scope);
         }
 
         // Check Body
         let mut new_body = Vec::new();
         self.trace = Trace::new(0, self.trace.clone());
         for child in body {
-            let checked_child = self.check_node(child)?;
+            let checked_child = self.check_node(child.clone())?;
             new_body.push(checked_child.checked);
-            self.trace.index += 1;
+            if !child.data.is_generated() {
+                self.trace.index += 1;
+            }
         }
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
@@ -197,7 +199,6 @@ impl Checker {
                 processed_name = function.get().process_name();
                 function
             } else {
-                println!("a: {:#?}", self.scope.get());
                 return Err(CheckerError::SymbolNotFound(name));
             }
         } else {
@@ -205,7 +206,6 @@ impl Checker {
                 processed_name = function.get().process_name();
                 function
             } else {
-                println!("b: {:#?}", self.scope.get().scope);
                 return Err(CheckerError::SymbolNotFound(name));
             }
         };
@@ -361,6 +361,7 @@ impl Checker {
                 AccessModifier::Guarded => unimplemented!(),
             }
         } else {
+            println!("Current path: {:#?}, selected: {:#?}", self.trace, selected.trace);
             Err(CheckerError::CannotAccessPrivateMember(node, selected.pos.clone()))
         }
     }
@@ -672,7 +673,7 @@ impl Checker {
         };
 
         // Enter Scope
-        if let Some(class) = self.scope.get().enter_class(self.trace.clone(), name.data.clone()) {
+        if let Some(class) = self.scope.get().enter_class(Trace::full(), name.data.clone()) {
             self.scope = class;
         } else {
             unreachable!("Symbol '{}' not found", name.data);
@@ -754,7 +755,7 @@ impl Checker {
         self.trace = Trace::new(0, self.trace.clone());
         for child in body {
             let mut checked_child = self.check_node(child.clone())?;
-            if let Node::FunctionDefinition { name, .. } = child.data {
+            if let Node::FunctionDefinition { name, .. } = child.data.clone() {
                 for implementation in implementations.iter() {
                     if implementation.data == name.data {
                         checked_child.checked = checked_child.checked.clone().convert(Node::_Implementation(Box::new(checked_child.checked)));
@@ -763,7 +764,9 @@ impl Checker {
                 }
             }
             new_body.push(checked_child.checked);
-            self.trace.index += 1;
+            if !child.data.is_generated() {
+                self.trace.index += 1;
+            }
         }
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
@@ -804,9 +807,11 @@ impl Checker {
         let mut new_body = Vec::new();
         self.trace = Trace::new(0, self.trace.clone());
         for child in body {
-            let checked_child = self.check_node(child)?;
+            let checked_child = self.check_node(child.clone())?;
             new_body.push(checked_child.checked);
-            self.trace.index += 1;
+            if !child.data.is_generated() {
+                self.trace.index += 1;
+            }
         }
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
@@ -845,9 +850,11 @@ impl Checker {
 
         self.trace = Trace::new(0, self.trace.clone());
         for node in body {
-            let checked_node = self.check_node(node)?;
+            let checked_node = self.check_node(node.clone())?;
             checked_body.push(checked_node.checked);
-            self.trace.index += 1;
+            if !node.data.is_generated() {
+                self.trace.index += 1;
+            }
         }
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
@@ -871,9 +878,11 @@ impl Checker {
             let mut checked_body = Vec::new();
             self.trace = Trace::new(0, self.trace.clone());
             for node in elif_branch.body {
-                let checked_node = self.check_node(node)?;
+                let checked_node = self.check_node(node.clone())?;
                 checked_body.push(checked_node.checked);
-                self.trace.index += 1;
+                if !node.data.is_generated() {
+                    self.trace.index += 1;
+                }
             }
             let parent_trace = *self.trace.clone().parent.unwrap();
             self.trace = parent_trace;
@@ -899,9 +908,11 @@ impl Checker {
     
             self.trace = Trace::new(0, self.trace.clone());
             for node in else_body {
-                let checked_node = self.check_node(node)?;
+                let checked_node = self.check_node(node.clone())?;
                 checked_else_body.push(checked_node.checked);
-                self.trace.index += 1;
+                if !node.data.is_generated() {
+                    self.trace.index += 1;
+                }
             }
             let parent_trace = *self.trace.clone().parent.unwrap();
             self.trace = parent_trace;
@@ -942,9 +953,11 @@ impl Checker {
 
         self.trace = Trace::new(0, self.trace.clone());
         for node in body {
-            let checked_node = self.check_node(node)?;
+            let checked_node = self.check_node(node.clone())?;
             checked_body.push(checked_node.checked);
-            self.trace.index += 1;
+            if !node.data.is_generated() {
+                self.trace.index += 1;
+            }
         }
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
@@ -1072,7 +1085,7 @@ impl Checker {
         };
 
         // Enter Scope
-        if let Some(interface) = self.scope.get().enter_interface(self.trace.clone(), name.data.clone()) {
+        if let Some(interface) = self.scope.get().enter_interface(Trace::full(), name.data.clone()) {
             self.scope = interface;
         } else {
             unreachable!("Symbol '{}' not found", name.data);
@@ -1082,9 +1095,11 @@ impl Checker {
         let mut new_body = Vec::new();
         self.trace = Trace::new(0, self.trace.clone());
         for child in body {
-            let checked_child = self.check_node(child)?;
+            let checked_child = self.check_node(child.clone())?;
             new_body.push(checked_child.checked);
-            self.trace.index += 1;
+            if !child.data.is_generated() {
+                self.trace.index += 1;
+            }
         }
         let parent_trace = *self.trace.clone().parent.unwrap();
         self.trace = parent_trace;
@@ -1136,7 +1151,8 @@ impl Checker {
             }),
             Node::_Optional(_) => unreachable!("Unexpected _Optional"),
             Node::_Renamed { .. } => unreachable!("Unexpected _Renamed"),
-            Node::_Implementation { .. } => unreachable!("Unexpected _Implementation")
+            Node::_Implementation { .. } => unreachable!("Unexpected _Implementation"),
+            Node::_Generated(inner) => self.check_node(*inner),
         }
     }
 
@@ -1170,9 +1186,11 @@ impl Checker {
         let mut output = IROutput { includes: self.ir_output.includes.clone() , ast: Vec::new() };
 
         while let Some(node) = self.current() {
-            output.ast.push(self.check_node(node)?.checked);
+            output.ast.push(self.check_node(node.clone())?.checked);
             self.advance();
-            self.trace.index += 1;
+            if !node.data.is_generated() {
+                self.trace.index += 1;
+            }
         }
 
         // Check if all variables have been initialized and types inferred

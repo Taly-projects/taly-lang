@@ -340,7 +340,8 @@ impl PostProcessor {
             Node::_Unchecked(inner) => self.process_node(*inner, None),
             Node::_Optional(inner) => self.process_node(*inner, None),
             Node::_Renamed { name, node } => self.process_node(*node, Some(name)),
-            Node::_Implementation(inner) => node.convert(Node::_Implementation(Box::new(self.process_node(*inner, new_name))))
+            Node::_Implementation(inner) => node.convert(Node::_Implementation(Box::new(self.process_node(*inner, new_name)))),
+            Node::_Generated(_) => unreachable!("Should have been processed in the checker!")
         }
     }
 

@@ -1,33 +1,35 @@
-use crate::{ir::output::IROutput, symbolizer::{scope::{Scope, ScopeType, Scoped}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType, AccessModifier, DataType}};
+use crate::{symbolizer::{scope::{Scope, ScopeType, Scoped}, error::SymbolizerError, trace::Trace}, util::{reference::MutRef, position::{Positioned}}, parser::node::{Node, VarType, AccessModifier, DataType}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                            Symbolizer                                          //
 //////////////////////////////////////////////////////////////////////////////////////////////////// 
 
 pub struct Symbolizer {
-    ir_output: IROutput,
+    ast: Vec<Positioned<Node>>,
     index: usize,
     trace: Trace,
 }
 
 impl Symbolizer {
 
-    pub fn new(ir_output: IROutput) -> Self {
+    pub fn new(ast: Vec<Positioned<Node>>) -> Self {
         Self {
-            ir_output,
+            ast,
             index: 0,
             trace: Trace::default()
         }
     }
 
+    /* Cursor Movement */
     fn current(&self) -> Option<Positioned<Node>> {
-        self.ir_output.ast.get(self.index).cloned()
+        self.ast.get(self.index).cloned()
     }
 
     fn advance(&mut self) {
         self.index += 1;
     }
 
+    /* Symbolize */
     fn symbolize_function_definition(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         let Node::FunctionDefinition { name, external, constructor, parameters, return_type, body, access } = node.data.clone() else {
             unreachable!()
@@ -391,7 +393,7 @@ impl Symbolizer {
     fn symbolize_node(&mut self, node: Positioned<Node>, scope: MutRef<Scope>) -> Result<(), SymbolizerError> {
         match node.data {
             Node::FunctionDefinition { .. } => self.symbolize_function_definition(node, scope),
-            Node::Use(_) => unreachable!("Should have been separated in the IR Generator!"),
+            Node::Use(_) => Ok(()), // Ignored (will be moved out by the IR Generator) 
             Node::VariableDefinition { .. } => self.symbolize_variable_definition(node, scope),
             Node::ClassDefinition { .. } => self.symbolize_class_definition(node, scope),
             Node::SpaceDefinition { .. } => self.symbolize_space_definition(node, scope),
@@ -399,16 +401,19 @@ impl Symbolizer {
             Node::WhileLoop { .. } => self.symbolize_while_loop(node, scope),
             Node::Label { .. } => self.symbolize_label(node, scope),
             Node::InterfaceDefinition { .. } => self.symbolize_interface_definition(node, scope),
-            Node::_Unchecked(inner) => self.symbolize_node(*inner, scope),
             _ => Ok(())
         }
     }
 
     pub fn symbolize(&mut self, root: MutRef<Scope>) -> Result<(), SymbolizerError> {
         while let Some(current) = self.current() {
-            self.symbolize_node(current, root.clone())?;
+            self.symbolize_node(current.clone(), root.clone())?;
             self.advance();
-            self.trace.index += 1;
+            if let Node::Use(_) = current.data {
+                // Don't advance (ignored)
+            } else {
+                self.trace.index += 1;
+            }
         }
         
         Ok(())

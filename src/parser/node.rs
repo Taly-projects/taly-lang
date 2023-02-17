@@ -84,6 +84,7 @@ pub enum Node {
         node: Box<Positioned<Node>>
     },
     _Implementation(Box<Positioned<Node>>),
+    _Generated(Box<Positioned<Node>>),
 }
 
 impl Node {
@@ -144,8 +145,16 @@ impl Node {
             Node::_Optional(inner) => format!("?{}", inner.data.short_name()),
             Node::_Renamed { node, .. } => format!("*{}", node.data.short_name()),
             Node::_Implementation(inner) => format!("@override {}", inner.data.short_name()),
+            Node::_Generated(inner) => format!("@generated {}", inner.data.short_name()),
         }
     }
+
+    pub fn is_generated(&self) -> bool {
+        match self {
+            Node::_Generated(_) => true,
+            _ => false
+        }
+    } 
 
 }
 

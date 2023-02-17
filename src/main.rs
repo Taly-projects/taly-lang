@@ -45,8 +45,8 @@ fn parse(src: &SourceFile, tokens: Vec<Positioned<Token>>) -> Vec<Positioned<Nod
     }
 }
 
-fn ir_generate(src: &SourceFile, ast: Vec<Positioned<Node>>) -> IROutput {
-    let mut ir = IRGenerator::new(ast);
+fn ir_generate(src: &SourceFile, ast: Vec<Positioned<Node>>, root: MutRef<Scope>) -> IROutput {
+    let mut ir = IRGenerator::new(ast, root);
     match ir.generate() {
         Ok(output) => output,
         Err(err) => {
@@ -56,8 +56,8 @@ fn ir_generate(src: &SourceFile, ast: Vec<Positioned<Node>>) -> IROutput {
     }
 }
 
-fn symbolize(src: &SourceFile, ir_output: IROutput, root: MutRef<Scope>) {
-    let mut symbolizer = Symbolizer::new(ir_output);
+fn symbolize(src: &SourceFile, ast: Vec<Positioned<Node>>, root: MutRef<Scope>) {
+    let mut symbolizer = Symbolizer::new(ast);
     match symbolizer.symbolize(root) {
         Err(err) => {
             err.print_error(src);
@@ -117,9 +117,16 @@ fn main() {
     }
     println!("\n");
 
+    // Symbolizer
+    println!("{}", "\n/> Symbolizer".truecolor(81, 255, 255));
+    let mut root_scope = Scope::root();
+    symbolize(&src, ast.clone(), MutRef::new(&mut root_scope));
+    std::fs::write("./out/scope_out.json", format!("{:#?}", root_scope)).unwrap();
+    println!("{:#?}\n", root_scope);
+
     // IR Generator
     println!("{}", "\n/> IR Generator".truecolor(81, 255, 255));
-    let ir_output = ir_generate(&src, ast);
+    let ir_output = ir_generate(&src, ast, MutRef::new(&mut root_scope));
 
     for include in ir_output.includes.iter() {
         println!("{:?}", include);
@@ -129,13 +136,6 @@ fn main() {
         println!("{:#?}", node);
     }
     println!("\n");
-
-    // Symbolizer
-    println!("{}", "\n/> Symbolizer".truecolor(81, 255, 255));
-    let mut root_scope = Scope::root();
-    symbolize(&src, ir_output.clone(), MutRef::new(&mut root_scope));
-    // std::fs::write("./scope_out.json", format!("{:#?}", root_scope)).unwrap();
-    println!("{:#?}\n", root_scope);
     
     // Checker
     println!("{}", "\n/> Checker".truecolor(81, 255, 255));

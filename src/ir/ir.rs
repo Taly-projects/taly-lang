@@ -1,4 +1,4 @@
-use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch, DataType,}};
+use crate::{util::{position::Positioned, reference::MutRef}, ir::{error::IRError, output::{IROutput, Include, IncludeType}}, parser::node::{Node, ValueNode, Operator, VarType, FunctionDefinitionParameter, AccessModifier, ElifBranch, DataType,}, symbolizer::{scope::{Scope, ScopeType, Scoped}, trace::Trace}};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                           IR Generator                                         //
@@ -6,6 +6,8 @@ use crate::{util::position::Positioned, ir::{error::IRError, output::{IROutput, 
 
 pub struct IRGenerator {
     ast: Vec<Positioned<Node>>,
+    scope: MutRef<Scope>,
+    trace: Trace,
     index: usize,
     temp_id: usize,
     extra_includes: Vec<Include>,
@@ -13,15 +15,18 @@ pub struct IRGenerator {
 
 impl IRGenerator {
 
-    pub fn new(ast: Vec<Positioned<Node>>) -> Self {
+    pub fn new(ast: Vec<Positioned<Node>>, scope: MutRef<Scope>) -> Self {
         Self {
             ast,
+            scope,
+            trace: Trace::default(),
             index: 0,
             temp_id: 0,
             extra_includes: Vec::new(),
         }
-    }
+    } 
 
+    /* Useful functions */
     fn add_extra_include(&mut self, include: Include) {
         for already in self.extra_includes.iter() {
             if already.full_path() == include.full_path() {
@@ -32,6 +37,7 @@ impl IRGenerator {
         self.extra_includes.push(include);
     }
 
+    /* Cursor Movement */
     fn advance(&mut self) {
         self.index += 1;
     }
@@ -40,6 +46,7 @@ impl IRGenerator {
         self.ast.get(self.index).cloned()
     }
 
+    /* Generate */
     fn generate_include(&mut self, path: Positioned<String>) -> Result<Include, IRError> {
         if path.data.starts_with("c-") {
             Ok(Include { 
@@ -95,37 +102,76 @@ impl IRGenerator {
         })])
     }
 
-    fn generate_function_definition(&mut self, node: Positioned<Node>, parent_type: Option<Positioned<String>>, root: bool) -> Result<Vec<Positioned<Node>>, IRError> {
+    fn generate_function_definition(&mut self, node: Positioned<Node>, parent_type: Option<Scoped<Positioned<String>>>, root: bool) -> Result<Vec<Positioned<Node>>, IRError> {
         let Node::FunctionDefinition { name, external, constructor, mut parameters, mut return_type, mut body, access } = node.data.clone() else {
+            unreachable!()
+        };
+
+        // Enter Scope
+        if let Some(function) = self.scope.get().enter_function(Trace::full(), name.data.clone(), true, true) {
+            function.get().parent = Some(self.scope.clone()); // FIXME: Somehow fix the problem
+            self.scope = function;
+        } else {
+            unreachable!("Symbol '{}' not found in {:#?}", name.data, self.scope.get().scope);
+        }
+
+        let ScopeType::Function { params: function_params, return_type: function_return_type, .. } = &mut self.scope.get().scope else {
             unreachable!()
         };
 
         if let Some(parent_type) = parent_type {
             if !constructor {
                 let mut new_params = Vec::new();
-                new_params.push(FunctionDefinitionParameter::new(name.convert("self".to_string()), parent_type.convert(DataType::Custom(parent_type.data.clone()))));
+                new_params.push(FunctionDefinitionParameter::new(name.convert("self".to_string()), parent_type.data.convert(DataType::Custom(parent_type.data.data.clone()))));
                 new_params.append(&mut parameters);
                 parameters = new_params;
+                *function_params = parameters.clone();
+
+                // Add Self as child Symbol
+                self.scope.get().add_child(Scope::new(node.convert(()), ScopeType::Variable { 
+                    var_type: node.convert(VarType::Constant), 
+                    name: node.convert("self".to_string()),
+                    data_type: Some(Scoped {
+                        data: parent_type.data.convert(DataType::Custom(parent_type.data.data.clone())), 
+                        scope: parent_type.scope.clone(),
+                    }),
+                    initialized: true 
+                }, Some(self.scope.clone()), Trace::new(0, self.trace.clone()), None));
             } else {
-                return_type = Some(parent_type.convert(DataType::Custom(parent_type.data.clone())));
+                return_type = Some(parent_type.data.convert(DataType::Custom(parent_type.data.data.clone())));
+                *function_return_type = Some(Scoped {
+                    data: return_type.clone().unwrap(),
+                    scope: Some(self.scope.clone())
+                });
 
                 self.add_extra_include(Include { 
                     include_type: IncludeType::StdExternal, 
                     path: node.convert("stdlib.h".to_string()) 
                 });
 
+                // Create Self Symbol
+                self.scope.get().add_child(Scope::new(node.convert(()), ScopeType::Variable { 
+                    var_type: node.convert(VarType::Constant), 
+                    name: node.convert("self".to_string()),
+                    data_type: Some(Scoped {
+                        data: parent_type.data.convert(DataType::Custom(parent_type.data.data.clone())), 
+                        scope: parent_type.scope.clone(),
+                    }),
+                    initialized: true 
+                }, Some(self.scope.clone()), Trace::new(0, self.trace.clone()), None));
+
                 let mut new_body = Vec::new();
                 new_body.push(node.convert(Node::_Unchecked(Box::new(node.convert(Node::VariableDefinition { 
                     var_type: node.convert(VarType::Constant), 
                     name: node.convert("self".to_string()), 
-                    data_type: Some(parent_type.convert(DataType::Custom(parent_type.data.clone()))), 
+                    data_type: Some(parent_type.data.convert(DataType::Custom(parent_type.data.data.clone()))), 
                     value: Some(Box::new(node.convert(Node::FunctionCall { 
                         name: node.convert("malloc".to_string()), 
                         parameters: vec![
                             node.convert(Node::FunctionCall { 
                                 name: node.convert("sizeof".to_string()), 
                                 parameters: vec![
-                                    node.convert(Node::Value(ValueNode::Type(format!("_NOPTR_{}", parent_type.data.clone()))))
+                                    node.convert(Node::Value(ValueNode::Type(format!("_NOPTR_{}", parent_type.data.data.clone()))))
                                 ] 
                             })
                         ] 
@@ -139,17 +185,29 @@ impl IRGenerator {
         } else if root && name.data == "main" {
             if let Some(data_type) = &mut return_type {
                 match &data_type.data {
-                    DataType::Custom(inner) if inner == "I32" => *data_type = data_type.convert(DataType::Custom("c_int".to_string())),
+                    DataType::Custom(inner) if inner == "I32" => {
+                        // Convert symbol's type
+                        *function_return_type = Some(Scoped {
+                            data: data_type.convert(DataType::Custom("c_int".to_string())),
+                            scope: None
+                        });
+                        *data_type = data_type.convert(DataType::Custom("c_int".to_string()));
+                    }
                     DataType::Custom(inner) if inner == "c_int" => {}
                     _ => return Err(IRError::MainFunctionShouldReturnCInt(data_type.convert(()))),
                 }
             } else {
+                *function_return_type = Some(Scoped {
+                    data: name.convert(DataType::Custom("c_int".to_string())),
+                    scope: None
+                });
                 return_type = Some(name.convert(DataType::Custom("c_int".to_string())));
                 body.push(name.convert(Node::Return(Some(Box::new(name.convert(Node::Value(ValueNode::Integer("0".to_string()))))))));
             }
         }
 
         let mut new_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
         for child in body.iter() {
             if return_type.is_some() && std::ptr::eq(child, body.last().unwrap()) {
                 match child.data {
@@ -169,6 +227,15 @@ impl IRGenerator {
             } else {
                 new_body.append(&mut self.generate_function_definition_body(child.clone())?);
             }
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
         }
 
         Ok(vec![node.convert(Node::FunctionDefinition { 
@@ -375,6 +442,13 @@ impl IRGenerator {
             unreachable!()
         };
 
+        // Enter Scope
+        if let Some(class) = self.scope.get().enter_class(Trace::full(), name.data.clone()) {
+            self.scope = class;
+        } else {
+            unreachable!("Symbol '{}' not found in {:#?}", name.data, self.scope.get());
+        }
+
         let mut new_body = Vec::new();
         let mut destructor = None;
         let mut has_constructor = false;
@@ -392,6 +466,7 @@ impl IRGenerator {
         //     }))
         // }
 
+        self.trace = Trace::new(0, self.trace.clone());
         for node in body.iter() {
             if let Node::FunctionDefinition { name: function_name, return_type, parameters, constructor, .. } = &node.data {
                 if *constructor {
@@ -421,11 +496,28 @@ impl IRGenerator {
                 has_fields = true;
             }
             new_body.append(&mut self.generate_class_definition_body(node.clone(), name.clone())?);
+            self.trace.index += 1;
         }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
 
         // Generate destructor
         if destructor.is_none() {
-            new_body.append(&mut self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
+            // First Generate the symbol
+            self.scope.get().add_child(Scope::new(name.convert(()), ScopeType::Function { 
+                name: name.convert("destroy".to_string()), 
+                params: vec![FunctionDefinitionParameter {
+                    name: name.convert("self".to_string()), 
+                    data_type: name.clone().convert(DataType::Custom(name.data.clone()))
+                }], 
+                children: vec![], 
+                return_type: None, 
+                external: false, 
+                constructor: false, 
+                implementation: false 
+            }, Some(self.scope.clone()), self.trace.clone(), Some(name.convert(AccessModifier::Public))));
+
+            for node in self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
                 name: name.convert("destroy".to_string()), 
                 external: false, 
                 constructor: false, 
@@ -440,12 +532,14 @@ impl IRGenerator {
                     }))))
                 ],
                 access: Some(node.convert(AccessModifier::Public)) 
-            }), name.clone())?);
+            }), name.clone())? {
+                new_body.push(node.clone().convert(Node::_Generated(Box::new(node))));
+            }
         }
 
         // Generate default constructor
         if !has_constructor && !has_fields {
-            new_body.append(&mut self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
+            for node in self.generate_class_definition_body(name.convert(Node::FunctionDefinition { 
                 name: name.convert("create".to_string()), 
                 external: false, 
                 constructor: true, 
@@ -453,7 +547,16 @@ impl IRGenerator {
                 return_type: None, 
                 body: vec![], 
                 access: Some(node.convert(AccessModifier::Public)) 
-            }), name.clone())?);
+            }), name.clone())? {
+                new_body.push(node.clone().convert(Node::_Generated(Box::new(node))));
+            }
+        }
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
         }
 
         Ok(vec![node.convert(Node::ClassDefinition { 
@@ -466,7 +569,10 @@ impl IRGenerator {
 
     fn generate_class_definition_body(&mut self, node: Positioned<Node>, parent_type: Positioned<String>) -> Result<Vec<Positioned<Node>>, IRError> {
         match node.data {
-            Node::FunctionDefinition { .. } => self.generate_function_definition(node, Some(parent_type), false),
+            Node::FunctionDefinition { .. } => self.generate_function_definition(node, Some(Scoped {
+                data: parent_type,
+                scope: Some(self.scope.clone())
+            }), false),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::_Unchecked(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
@@ -479,9 +585,13 @@ impl IRGenerator {
         };
 
         let mut new_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
         for node in body.iter() {
             new_body.append(&mut self.generate_space_definition_body(node.clone())?);
+            self.trace.index += 1;
         }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
 
         Ok(vec![node.convert(Node::SpaceDefinition { 
             name, 
@@ -682,9 +792,27 @@ impl IRGenerator {
             unreachable!()
         };
 
+        // Enter Scope
+        if let Some(interface) = self.scope.get().enter_interface(Trace::full(), name.data.clone()) {
+            self.scope = interface;
+        } else {
+            unreachable!("Symbol '{}' not found", name.data);
+        }
+
         let mut new_body = Vec::new();
+        self.trace = Trace::new(0, self.trace.clone());
         for node in body.iter() {
             new_body.append(&mut self.generate_interface_definition_body(node.clone())?);
+            self.trace.index += 1;
+        }
+        let parent_trace = *self.trace.clone().parent.unwrap();
+        self.trace = parent_trace;
+
+        // Exit Scope
+        if let Some(parent) = self.scope.get().parent.clone() {
+            self.scope = parent;
+        } else {
+            unreachable!("Not parent after entering function!");
         }
 
         Ok(vec![node.convert(Node::InterfaceDefinition { 
@@ -727,6 +855,7 @@ impl IRGenerator {
                 _ => return Err(IRError::UnexpectedNode(current, None)),
             }
             self.advance();
+            self.trace.index += 1;
         } 
 
         // Add Extra includes
