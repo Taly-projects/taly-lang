@@ -268,7 +268,7 @@ impl Checker {
 
         // Find scope-symbol
         let Some(variable) = self.scope.get().get_variable(self.trace.clone(), name.data.clone(), true) else {
-            unreachable!("{}", name.data)
+            unreachable!("Symbol not found: {}", name.data)
         };
 
         let ScopeType::Variable { data_type: def_data_type, .. } = &mut variable.get().scope else {
@@ -1143,12 +1143,23 @@ impl Checker {
             Node::Continue(_) => self.check_continue(node),
             Node::Label { .. } => self.check_label(node),
             Node::InterfaceDefinition { .. } => self.check_interface_definition(node),
-            Node::_Unchecked(inner) => Ok(NodeInfo { 
-                checked: *inner, 
-                data_type: None, 
-                selected: None,
-                function_called: None
-            }),
+            Node::_Unchecked(inner) => {
+                if let Node::_Generated(inner2) = inner.data {
+                    Ok(NodeInfo { 
+                        checked: *inner2, 
+                        data_type: None, 
+                        selected: None,
+                        function_called: None
+                    })
+                } else {
+                    Ok(NodeInfo { 
+                        checked: *inner, 
+                        data_type: None, 
+                        selected: None,
+                        function_called: None
+                    })
+                }
+            },
             Node::_Optional(_) => unreachable!("Unexpected _Optional"),
             Node::_Renamed { .. } => unreachable!("Unexpected _Renamed"),
             Node::_Implementation { .. } => unreachable!("Unexpected _Implementation"),

@@ -438,7 +438,7 @@ impl IRGenerator {
     }
 
     fn generate_class_definition(&mut self, node: Positioned<Node>) -> Result<Vec<Positioned<Node>>, IRError> {
-        let Node::ClassDefinition { name, body, access, extensions } = node.data.clone() else {
+        let Node::ClassDefinition { name, mut body, access, extensions } = node.data.clone() else {
             unreachable!()
         };
 
@@ -453,30 +453,78 @@ impl IRGenerator {
         let mut destructor = None;
         let mut has_constructor = false;
         let mut has_fields = false;
+        let mut init_construction = Vec::new();
 
         // Generate fields for extensions
-        // for extension in extensions.iter() {
-        //     has_fields = true;
-        //     new_body.push(extension.convert(Node::VariableDefinition { 
-        //         var_type: extension.convert(VarType::Constant), 
-        //         name: extension.convert(format!("base_{}", extension.data)), 
-        //         data_type: Some(extension.convert(DataType::Custom(extension.data.clone()))), 
-        //         value: None, 
-        //         access: None 
-        //     }))
-        // }
+        for extension in extensions.iter() {
+            has_fields = true;
+            let field_name = extension.convert(format!("base_{}", extension.data.clone()));
+
+            // Find Interface TODO: replace Trace::full() by self.trace.clone()
+            let Some(interface) = self.scope.get().get_interface(Trace::full(), extension.data.clone()) else {
+                todo!("Error, interface '{}' not found!", extension.data);
+            };
+
+            // Add Symbol
+            self.scope.get().add_child(Scope::new(extension.convert(()), ScopeType::Variable { 
+                var_type: extension.convert(VarType::Constant), 
+                name: field_name.clone(), 
+                data_type: Some(Scoped {
+                    data: extension.convert(DataType::Custom(extension.data.clone())),
+                    scope: Some(interface)
+                }), 
+                initialized: true // True because initialized using unchecked node
+            }, Some(self.scope.clone()), Trace::new(0, self.trace.clone()), None));
+
+            // Add Node
+            new_body.push(extension.convert(Node::_Generated(Box::new(extension.convert(Node::VariableDefinition { 
+                var_type: extension.convert(VarType::Constant), 
+                name: field_name.clone(), 
+                data_type: Some(extension.convert(DataType::Custom(extension.data.clone()))), 
+                value: None, 
+                access: None 
+            })))));
+
+            // Add Initialization to list (allocation & then field set)
+            init_construction.push(extension.convert(Node::_Unchecked(Box::new(extension.convert(Node::_Generated(Box::new(extension.convert(Node::BinaryOperation { 
+                lhs: Box::new(extension.convert(Node::BinaryOperation { 
+                    lhs: Box::new(extension.convert(Node::VariableCall("self".to_string()))), 
+                    operator: extension.convert(Operator::Access), 
+                    rhs: Box::new(extension.convert(Node::VariableCall(field_name.clone().data))) 
+                })), 
+                operator: extension.convert(Operator::Assign), 
+                rhs: Box::new(extension.convert(Node::FunctionCall { 
+                    name: extension.convert("malloc".to_string()), 
+                    parameters: vec![
+                        extension.convert(Node::FunctionCall { 
+                            name: extension.convert("sizeof".to_string()), 
+                            parameters: vec![
+                                extension.convert(Node::Value(ValueNode::Type(format!("_NOPTR_{}", extension.data.clone()))))
+                            ] 
+                        })
+                    ] 
+                }))
+            }))))))));
+
+            // TODO: Functions ptr initialization
+        }
 
         self.trace = Trace::new(0, self.trace.clone());
-        for node in body.iter() {
-            if let Node::FunctionDefinition { name: function_name, return_type, parameters, constructor, .. } = &node.data {
+        for node in body.iter_mut() {
+            let node_pos = node.convert(());
+            if let Node::FunctionDefinition { name: function_name, return_type, parameters, constructor, body, .. } = &mut node.data {
                 if *constructor {
+                    let mut temp_body = Vec::new();
+                    temp_body.append(&mut init_construction.clone());
+                    temp_body.append(body);
+                    *body = temp_body;
                     has_constructor = true;
                 }
                 if function_name.data == "destroy" {
                     if let Some(destructor) = destructor {
                         return Err(IRError::DestructorAlreadyDefined(node.convert(()), destructor));
                     } 
-                    destructor = Some(node.convert(()));
+                    destructor = Some(node_pos.clone());
 
                     // Check destructor
                     if return_type.is_some() {
