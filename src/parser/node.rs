@@ -301,6 +301,7 @@ pub enum Operator {
     Divide,
     Assign,
     Access,
+    DotAccess, // Only used in the generator
     BooleanAnd,
     BooleanOr,
     BooleanXor,

@@ -134,7 +134,7 @@ impl Generator {
         let mut buf = String::new();
 
         buf.push('(');
-        let access = if operator.data == Operator::Access {
+        let access = if operator.data == Operator::Access || operator.data == Operator::DotAccess {
             if let Node::FunctionCall { .. } = rhs.data {
                 buf.push('(');
                 true
@@ -152,6 +152,7 @@ impl Generator {
             Operator::Divide => buf.push_str(" / "),
             Operator::Assign => buf.push_str(" = "),
             Operator::Access => buf.push_str("->"),
+            Operator::DotAccess => buf.push_str("."),
             Operator::BooleanAnd => buf.push_str(" && "),
             Operator::BooleanOr => buf.push_str(" || "),
             Operator::Equal => buf.push_str(" == "),
@@ -504,6 +505,7 @@ impl Generator {
                 call_params.push(param.name.convert(Node::VariableCall(param.name.data.clone())))
             }
 
+            // TODO: Something to change here (maybe move to Post Generator)
             let fun_file = self.generate_root_function_definition(method_impl.convert(Node::FunctionDefinition { 
                 name: base_name.clone(), 
                 external: false, 

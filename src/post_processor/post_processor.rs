@@ -86,14 +86,14 @@ impl PostProcessor {
             } else {
                 node.convert(Node::BinaryOperation { 
                     lhs: Box::new(self.process_node(*lhs, None)), 
-                    operator: operator, 
+                    operator, 
                     rhs: Box::new(self.process_node(*rhs, None)) 
                 })
             }
         } else {
             node.convert(Node::BinaryOperation { 
                 lhs: Box::new(self.process_node(*lhs, None)), 
-                operator: operator, 
+                operator, 
                 rhs: Box::new(self.process_node(*rhs, None)) 
             })
         }
@@ -257,7 +257,7 @@ impl PostProcessor {
             };
 
             let mut params = Vec::new();
-            params.push(interface_name.convert(DataType::Custom(interface_name.data.clone())));
+            params.push(interface_name.convert(DataType::Custom(format!("struct {}", interface_name.data.clone()))));
             for param in parameters.clone() {
                 params.push(param.data_type);
             }
@@ -287,7 +287,8 @@ impl PostProcessor {
             }
             new_parameters.append(&mut parameters);
 
-            // Methods
+            // Methods TODO: Removed useless method (check if symbol is still present. If it is, remove it)
+            // TODO: Put back needed to call a function part of the interface with only the interface and not the class
             new_body.push(processed_node.convert(Node::FunctionDefinition { 
                 name: name.clone(), 
                 external: false, 
@@ -324,7 +325,7 @@ impl PostProcessor {
             Node::Use(_) => node,
             Node::VariableDefinition { .. } => self.process_variable_definition(node),
             Node::VariableCall(_) => node,
-            Node::BinaryOperation { operator, .. } if operator.data == Operator::Access => self.process_access(node),
+            Node::BinaryOperation { operator, .. } if operator.data == Operator::Access || operator.data == Operator::DotAccess => self.process_access(node),
             Node::BinaryOperation { .. } => self.process_bin_op(node),
             Node::UnaryOperation { .. } => self.process_unary_op(node),
             Node::Return(_) => self.process_return(node),

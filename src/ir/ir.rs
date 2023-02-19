@@ -271,6 +271,7 @@ impl IRGenerator {
             Node::Continue(_) => self.generate_continue(node),
             Node::Label { .. } => self.generate_label(node),
             Node::_Unchecked(_) => Ok(vec![node]),
+            Node::_Generated(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
@@ -470,8 +471,8 @@ impl IRGenerator {
                 var_type: extension.convert(VarType::Constant), 
                 name: field_name.clone(), 
                 data_type: Some(Scoped {
-                    data: extension.convert(DataType::Custom(extension.data.clone())),
-                    scope: Some(interface)
+                    data: extension.convert(DataType::Custom(format!("_NOPTR_{}", extension.data.clone()))),
+                    scope: Some(interface.clone())
                 }), 
                 initialized: true // True because initialized using unchecked node
             }, Some(self.scope.clone()), Trace::new(0, self.trace.clone()), None));
@@ -485,28 +486,49 @@ impl IRGenerator {
                 access: None 
             })))));
 
-            // Add Initialization to list (allocation & then field set)
-            init_construction.push(extension.convert(Node::_Unchecked(Box::new(extension.convert(Node::_Generated(Box::new(extension.convert(Node::BinaryOperation { 
-                lhs: Box::new(extension.convert(Node::BinaryOperation { 
-                    lhs: Box::new(extension.convert(Node::VariableCall("self".to_string()))), 
-                    operator: extension.convert(Operator::Access), 
-                    rhs: Box::new(extension.convert(Node::VariableCall(field_name.clone().data))) 
-                })), 
-                operator: extension.convert(Operator::Assign), 
-                rhs: Box::new(extension.convert(Node::FunctionCall { 
-                    name: extension.convert("malloc".to_string()), 
-                    parameters: vec![
-                        extension.convert(Node::FunctionCall { 
-                            name: extension.convert("sizeof".to_string()), 
-                            parameters: vec![
-                                extension.convert(Node::Value(ValueNode::Type(format!("_NOPTR_{}", extension.data.clone()))))
-                            ] 
-                        })
-                    ] 
-                }))
-            }))))))));
+            // Add Initialization to list (allocation & then field set) 
+            // init_construction.push(extension.convert(Node::_Generated(Box::new(extension.convert(Node::_Unchecked(Box::new(extension.convert(Node::BinaryOperation { 
+            //     lhs: Box::new(extension.convert(Node::BinaryOperation { 
+            //         lhs: Box::new(extension.convert(Node::VariableCall("self".to_string()))), 
+            //         operator: extension.convert(Operator::Access), 
+            //         rhs: Box::new(extension.convert(Node::VariableCall(field_name.clone().data))) 
+            //     })), 
+            //     operator: extension.convert(Operator::Assign), 
+            //     rhs: Box::new(extension.convert(Node::FunctionCall { 
+            //         name: extension.convert("malloc".to_string()), 
+            //         parameters: vec![
+            //             extension.convert(Node::FunctionCall { 
+            //                 name: extension.convert("sizeof".to_string()), 
+            //                 parameters: vec![
+            //                     extension.convert(Node::Value(ValueNode::Type(format!("_NOPTR_{}", extension.data.clone()))))
+            //                 ] 
+            //             })
+            //         ] 
+            //     }))
+            // }))))))));
 
             // TODO: Functions ptr initialization
+            let ScopeType::Interface { name: intf_name, children, .. } = &interface.get().scope else {
+                unreachable!()
+            };
+
+            for scope in children.iter() {
+                if let ScopeType::Function { name: fun_name, .. } = &scope.scope {
+                    init_construction.push(extension.convert(Node::_Generated(Box::new(extension.convert(Node::_Unchecked(Box::new(extension.convert(Node::BinaryOperation { 
+                        lhs: Box::new(extension.convert(Node::BinaryOperation { 
+                            lhs: Box::new(extension.convert(Node::BinaryOperation { 
+                                lhs: Box::new(extension.convert(Node::VariableCall("self".to_string()))), 
+                                operator: extension.convert(Operator::Access),
+                                rhs: Box::new(extension.convert(Node::VariableCall(field_name.clone().data))) 
+                            })), 
+                            operator: extension.convert(Operator::DotAccess), 
+                            rhs: Box::new(extension.convert(Node::VariableCall(format!("{}_{}", intf_name.data, fun_name.data.clone())))) 
+                        })), 
+                        operator: extension.convert(Operator::Assign), 
+                        rhs: Box::new(extension.convert(Node::VariableCall(format!("&{}_{}_impl", name.data, fun_name.data))))  // TODO: Change the & to a reference node
+                    }))))))));
+                }
+            }
         }
 
         self.trace = Trace::new(0, self.trace.clone());
@@ -623,6 +645,7 @@ impl IRGenerator {
             }), false),
             Node::VariableDefinition { .. } => self.generate_variable_definition(node),
             Node::_Unchecked(_) => Ok(vec![node]),
+            Node::_Generated(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
@@ -655,6 +678,7 @@ impl IRGenerator {
             Node::SpaceDefinition { .. } => self.generate_space_definition(node),
             Node::InterfaceDefinition { .. } => self.generate_interface_definition(node),
             Node::_Unchecked(_) => Ok(vec![node]),
+            Node::_Generated(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
@@ -874,6 +898,7 @@ impl IRGenerator {
         match node.data {
             Node::FunctionDefinition { constructor, .. } if !constructor => self.generate_function_definition(node, None, false),
             Node::_Unchecked(_) => Ok(vec![node]),
+            Node::_Generated(_) => Ok(vec![node]),
             _ => Err(IRError::UnexpectedNode(node, None)),
         }
     }
@@ -891,6 +916,7 @@ impl IRGenerator {
                 Node::SpaceDefinition { .. } => output.ast.append(&mut self.generate_space_definition(current)?),
                 Node::InterfaceDefinition { .. } => output.ast.append(&mut self.generate_interface_definition(current)?),
                 Node::_Unchecked(_) => output.ast.push(current),
+                Node::_Generated(_) => output.ast.push(current),
                 Node::Use(path) => {
                     for include in output.includes.iter() {
                         if include.full_path() == format!("{}.h", path.data) {

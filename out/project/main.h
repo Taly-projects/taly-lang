@@ -5,13 +5,13 @@
 #include <stdlib.h>
 
 typedef struct ToCString { 
-	const char*(*ToCString_to_c_string)(ToCString*);
+	const char*(*ToCString_to_c_string)(struct ToCString*);
 } ToCString;
 
 const char* ToCString_to_c_string(ToCString* self);
 
 typedef struct String { 
-	ToCString* base_ToCString;
+	ToCString base_ToCString;
 	const char* c_str;
 } String;
 

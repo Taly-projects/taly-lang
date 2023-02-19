@@ -6,7 +6,7 @@ const char* ToCString_to_c_string(ToCString* self) {
 
 String* String_create(const char* c_str) { 
 	String* self = malloc(sizeof(String));
-	((self->base_ToCString) = malloc(sizeof(ToCString)));
+	(((self->base_ToCString).ToCString_to_c_string) = &String_to_c_string_impl);
 	((self->c_str) = c_str);
 	return self;
 }

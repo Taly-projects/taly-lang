@@ -589,7 +589,8 @@ impl Checker {
                 }
             }
             Operator::Assign => self.check_assignment(node),
-            Operator::Access => self.check_access(node),
+            Operator::Access |
+            Operator::DotAccess => self.check_access(node),
             _ => unreachable!()
         }
     }
